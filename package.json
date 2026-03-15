@@ -10,11 +10,13 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^0.7.0"
+    "@google/genai": "^0.7.0",
+    "framer-motion": "^12.36.0",
+    "lucide-react": "^0.577.0",
+    "marked": "^17.0.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
-    
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

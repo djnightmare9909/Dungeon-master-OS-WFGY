@@ -3,6 +3,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import { marked } from 'marked';
 import { getChatHistory, getCurrentChat, getUISettings, dbSet } from './state';
 import type { Message, ChatSession, CharacterSheetData, Achievement, NPCState } from './types';
 import { dmPersonas, resetAI } from './gemini';
@@ -361,43 +362,43 @@ export function renderSetupChoices() {
 
 export function renderCharacterSheet(data: CharacterSheetData) {
   if (!characterSheetDisplay) return;
-  characterSheetDisplay.innerHTML = `
-      <header class="sheet-header">
-          <div><h3 class="sheet-char-name">${data.name || 'Character Name'}</h3></div>
-          <div class="sheet-char-details">
-              <span>${data.race || 'Race'} ${data.class || 'Class'}</span><br>
-              <span>Level ${data.level || 1}</span>
-          </div>
-      </header>
-      <div class="sheet-main-content">
-          <div class="sheet-stats-column">
-              <div class="sheet-core-stats">
-                  ${Object.entries(data.abilityScores || {}).map(([name, values]) => `
-                      <div class="stat-box">
-                          <div class="stat-box-label">${name}</div>
-                          <div class="stat-box-score">${values.score || 10}</div>
-                          <div class="stat-box-mod">${values.modifier || '+0'}</div>
-                      </div>
-                  `).join('')}
-              </div>
-              <div class="sheet-combat-stats">
-                  <div class="stat-box"><div class="stat-box-label">Armor Class</div><div class="stat-box-score">${data.armorClass || 10}</div></div>
-                  <div class="stat-box"><div class="stat-box-label">Hit Points</div><div class="stat-box-score">${data.hitPoints?.current ?? 10}/${data.hitPoints?.max ?? 10}</div></div>
-                  <div class="stat-box"><div class="stat-box-label">Speed</div><div class="stat-box-score">${data.speed || '30ft'}</div></div>
-              </div>
-          </div>
-          <div class="sheet-skills-column">
-              <h4>Skills</h4>
-              <ul class="sheet-skills-list">
-                  ${(data.skills || []).map(skill => `<li class="skill-item"><span class="skill-prof ${skill.proficient ? 'proficient' : ''}"></span><span class="skill-name">${skill.name}</span></li>`).join('')}
-              </ul>
-              <div class="sheet-features">
-                  <h4>Features & Traits</h4>
-                  <ul>${(data.featuresAndTraits || []).map(feature => `<li>${feature}</li>`).join('')}</ul>
-              </div>
-          </div>
-      </div>
-    `;
+
+  const abilityScoresMd = Object.entries(data.abilityScores || {})
+    .map(([name, values]) => `| ${name} | ${values.score || 10} | ${values.modifier || '+0'} |`)
+    .join('\n');
+
+  const skillsMd = (data.skills || [])
+    .map(skill => `- [${skill.proficient ? 'x' : ' '}] ${skill.name}`)
+    .join('\n');
+
+  const featuresMd = (data.featuresAndTraits || [])
+    .map(feature => `- ${feature}`)
+    .join('\n');
+
+  const markdown = `
+# ${data.name || 'Unnamed Hero'}
+**${data.race || 'Race'} ${data.class || 'Class'} | Level ${data.level || 1}**
+
+---
+
+### Core Stats
+| Ability | Score | Mod |
+| :--- | :--- | :--- |
+${abilityScoresMd}
+
+### Combat
+- **Armor Class:** ${data.armorClass || 10}
+- **Hit Points:** ${data.hitPoints?.current ?? 10} / ${data.hitPoints?.max ?? 10}
+- **Speed:** ${data.speed || '30ft'}
+
+### Skills
+${skillsMd}
+
+### Features & Traits
+${featuresMd}
+  `;
+
+  characterSheetDisplay.innerHTML = `<div class="markdown-body">${marked.parse(markdown)}</div>`;
 }
 
 export function renderAchievements(achievements: Achievement[]) {

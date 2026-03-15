@@ -11,6 +11,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="index.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script type="importmap">
       {
         "imports": {
@@ -340,11 +341,11 @@
             </nav>
             <main class="logbook-content">
                 <div id="character-sheet-content" class="logbook-pane active">
+                    <h3>Character Sheet</h3>
                     <div id="character-sheet-display" class="character-sheet">
                       <div class="sheet-placeholder">
                         <p>No data. Click below to generate your character sheet from the adventure log.</p>
                       </div>
-                      <!-- Character Sheet data will be rendered here by JS -->
                     </div>
                     <button id="update-sheet-btn" class="logbook-update-btn">Request Update from DM</button>
                 </div>
@@ -382,85 +383,119 @@
                 </div>
 
                 <div id="settings-content" class="logbook-pane">
-                     <h3>Character Image</h3>
-                    <div class="character-image-container">
-                        <img id="character-image-display" src="" alt="Generated character portrait" class="hidden"/>
-                        <div id="character-image-placeholder">
-                            <p>Generate a unique portrait for your character based on your adventure.</p>
-                             <button id="generate-image-btn" class="logbook-update-btn">Generate Character Image</button>
-                        </div>
-                        <div id="character-image-loading" class="hidden">
-                            <p>First, creating a detailed description of your character...</p>
-                            <p>Then, generating the portrait. This may take a moment.</p>
-                            <div class="spinner"></div>
-                        </div>
-                    </div>
-                    <div class="settings-separator"></div>
-                    <h3>Appearance</h3>
-                    <button id="change-ui-btn" class="logbook-update-btn">Change Theme</button>
-                    <div class="settings-separator"></div>
-                    <h3>Interface Settings</h3>
-                    <div class="settings-grid">
-                        <div class="setting-item" style="grid-column: 1 / -1;">
-                            <label for="setting-api-key">API Key</label>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <input type="password" id="setting-api-key" placeholder="Paste your Google GenAI API Key here" style="flex-grow: 1; padding: 0.75rem; background-color: var(--background-color); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color); font-family: var(--mono-font);">
-                                <button id="save-api-key-btn" class="logbook-update-btn" style="margin-top: 0;">Save</button>
+                    <div class="settings-container">
+                        <!-- Character Portrait Section -->
+                        <section class="settings-section">
+                            <div class="section-header">
+                                <i data-lucide="user" class="section-icon"></i>
+                                <h3>Character Portrait</h3>
                             </div>
-                            <p class="setting-description">Get your key from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--accent-color);">Google AI Studio</a>. Stored locally in your browser.</p>
-                        </div>
-                        <div class="setting-item">
-                            <label for="setting-system-version">System Version</label>
-                            <select id="setting-system-version">
-                                <option value="2.0">Version 2.0 (Classic)</option>
-                                <option value="3.0">Version 3.0 (Cognitive Evolution)</option>
-                            </select>
-                            <p class="setting-description">Select the core logic version. 3.0 includes the WFGY 2.0 framework and updated DM directives.</p>
-                        </div>
-                        <div class="setting-item">
-                            <label for="setting-engine-variant">Engine Variant</label>
-                            <select id="setting-engine-variant">
-                                <option value="pro">Pro (High-Dimensional)</option>
-                                <option value="flash">Flash (Protocol-Driven)</option>
-                            </select>
-                            <p class="setting-description">Pro uses full WFGY math and high reasoning. Flash offloads mechanics to the browser for lower token cost.</p>
-                        </div>
-                        <div class="setting-item">
-                            <label for="setting-model">AI Model</label>
-                            <select id="setting-model">
-                                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                                <option value="gemini-3-flash-preview">Gemini 3.0 Flash Preview</option>
-                                <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite</option>
-                                <option value="gemini-3-pro-preview">Gemini 3.0 Pro Preview</option>
-                                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
-                                <option value="custom">Custom Model...</option>
-                            </select>
-                            <input type="text" id="setting-model-custom" placeholder="Enter model name (e.g. gemini-1.5-pro)" style="display: none; margin-top: 0.5rem; width: 100%; padding: 0.5rem; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white;">
-                            <p class="setting-description">Choose the brain behind the DM. Flash is faster/cheaper; 3.0 is the smartest.</p>
-                        </div>
-                        <div class="setting-item">
-                            <label>Font Size</label>
-                            <div id="font-size-controls" class="setting-button-group">
-                                <button data-size="small">Small</button>
-                                <button data-size="medium">Medium</button>
-                                <button data-size="large">Large</button>
+                            <div class="character-image-container">
+                                <img id="character-image-display" src="" alt="Generated character portrait" class="hidden"/>
+                                <div id="character-image-placeholder">
+                                    <p>Generate a unique portrait for your character based on your adventure.</p>
+                                    <button id="generate-image-btn" class="logbook-update-btn">Generate Character Image</button>
+                                </div>
+                                <div id="character-image-loading" class="hidden">
+                                    <p>First, creating a detailed description of your character...</p>
+                                    <p>Then, generating the portrait. This may take a moment.</p>
+                                    <div class="spinner"></div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="setting-item">
-                            <label for="setting-enter-send">Press Enter to Send</label>
-                            <label class="switch">
-                                <input type="checkbox" id="setting-enter-send">
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <label for="setting-experimental-upload">Experimental 75MB Upload Limit</label>
-                            <label class="switch">
-                                <input type="checkbox" id="setting-experimental-upload">
-                                <span class="slider round"></span>
-                            </label>
-                            <p class="setting-description">Warning: May cause browser instability with large files. Default limit is 50MB.</p>
-                        </div>
+                        </section>
+
+                        <!-- Appearance Section -->
+                        <section class="settings-section">
+                            <div class="section-header">
+                                <i data-lucide="palette" class="section-icon"></i>
+                                <h3>Appearance</h3>
+                            </div>
+                            <div class="setting-card">
+                                <p class="setting-description">Customize the visual theme of your interface.</p>
+                                <button id="change-ui-btn" class="logbook-update-btn">Change Theme</button>
+                            </div>
+                        </section>
+
+                        <!-- AI Configuration Section -->
+                        <section class="settings-section">
+                            <div class="section-header">
+                                <i data-lucide="brain-circuit" class="section-icon"></i>
+                                <h3>AI Configuration</h3>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-item full-width">
+                                    <label for="setting-api-key">API Key</label>
+                                    <div class="input-with-button">
+                                        <input type="password" id="setting-api-key" placeholder="Paste your Google GenAI API Key here">
+                                        <button id="save-api-key-btn" class="logbook-update-btn">Save</button>
+                                    </div>
+                                    <p class="setting-description">Get your key from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>. Stored locally.</p>
+                                </div>
+                                <div class="setting-item">
+                                    <label for="setting-model">AI Model</label>
+                                    <select id="setting-model">
+                                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                                        <option value="gemini-3-flash-preview">Gemini 3.0 Flash Preview</option>
+                                        <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite</option>
+                                        <option value="gemini-3-pro-preview">Gemini 3.0 Pro Preview</option>
+                                        <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                                        <option value="custom">Custom Model...</option>
+                                    </select>
+                                    <input type="text" id="setting-model-custom" placeholder="Enter model name" style="display: none;">
+                                </div>
+                                <div class="setting-item">
+                                    <label for="setting-system-version">System Version</label>
+                                    <select id="setting-system-version">
+                                        <option value="2.0">Version 2.0 (Classic)</option>
+                                        <option value="3.0">Version 3.0 (Cognitive)</option>
+                                    </select>
+                                </div>
+                                <div class="setting-item">
+                                    <label for="setting-engine-variant">Engine Variant</label>
+                                    <select id="setting-engine-variant">
+                                        <option value="pro">Pro (High-Dim)</option>
+                                        <option value="flash">Flash (Protocol)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Interface Preferences Section -->
+                        <section class="settings-section">
+                            <div class="section-header">
+                                <i data-lucide="settings-2" class="section-icon"></i>
+                                <h3>Interface Preferences</h3>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-item">
+                                    <label>Font Size</label>
+                                    <div id="font-size-controls" class="setting-button-group">
+                                        <button data-size="small">Small</button>
+                                        <button data-size="medium">Medium</button>
+                                        <button data-size="large">Large</button>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="switch-container">
+                                        <label for="setting-enter-send">Press Enter to Send</label>
+                                        <label class="switch">
+                                            <input type="checkbox" id="setting-enter-send">
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-item full-width">
+                                    <div class="switch-container">
+                                        <label for="setting-experimental-upload">Experimental 75MB Upload Limit</label>
+                                        <label class="switch">
+                                            <input type="checkbox" id="setting-experimental-upload">
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </div>
+                                    <p class="setting-description">Warning: May cause browser instability with large files.</p>
+                                </div>
+                            </div>
+                        </section>
                     </div>
                 </div>
             </main>
@@ -555,5 +590,13 @@
     </ul>
 
   <script type="module" src="/index.tsx"></script>
+  <script>
+    // Initialize Lucide icons
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
+    });
+  </script>
 </body>
 </html>
