@@ -143,7 +143,7 @@ DM OS features a polished and highly customizable interface designed for role‑
 
 📜 Philosophy & Origins
 
-DM OS was born from a simple belief: that a truly immersive, long‑form AI Dungeon Master should be accessible to everyone. It is the result of a nine‑month independent research and development journey to create a prompt architecture sophisticated enough to unlock the full storytelling potential of Google's Gemini models.
+DM OS was born from a simple belief: that a truly immersive, long‑form AI Dungeon Master should be accessible to everyone. It is the result of a roughly two-year independent research and development journey to create a prompt architecture sophisticated enough to unlock the full storytelling potential of Google's Gemini models.
 
 This project is not just an application; it's a testament to a new kind of creative partnership between human and machine – a process that could be called "vibe coding."
 
