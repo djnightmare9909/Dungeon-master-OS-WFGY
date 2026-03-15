@@ -877,64 +877,69 @@ export async function pruneAndSummarizeHistory() {
   const session = getCurrentChat();
   if (!session || isGeneratingData()) return;
 
-  // Only trigger if we have a significant number of messages (e.g., > 50)
-  if (session.messages.length < 50) return;
+  const settings = getUISettings();
+  const isFlash = settings.engineVariant === 'flash';
+  
+  // Tiered Budgeting: More aggressive pruning for Flash
+  const triggerThreshold = isFlash ? 25 : 40;
+  const bufferSize = isFlash ? 10 : 15;
+  const archiveCount = triggerThreshold - bufferSize;
 
-  console.log("Memory Compression Triggered: Summarizing old messages...");
+  if (session.messages.length < triggerThreshold) return;
+
+  console.log(`Memory Compression Triggered (${isFlash ? 'Flash' : 'Pro'}): Archiving and summarizing old messages...`);
 
   try {
-    // 1. Identify messages to prune (e.g., the oldest 30)
-    // We keep the very first message if it's a setup message, but usually we just prune the oldest.
-    const messagesToSummarize = session.messages.slice(0, 30);
-    const remainingMessages = session.messages.slice(30);
+    // 1. Identify messages to prune
+    const messagesToArchive = session.messages.slice(0, archiveCount);
+    const remainingMessages = session.messages.slice(archiveCount);
 
-    const historyText = messagesToSummarize
+    const archiveText = messagesToArchive
       .filter(m => !m.hidden && m.sender !== 'error' && m.sender !== 'system')
       .map(m => `${m.sender.toUpperCase()}: ${m.text}`)
       .join('\n');
 
-    if (!historyText.trim()) {
-        // If there's nothing meaningful to summarize, just prune and return
-        session.messages = remainingMessages;
-        saveChatHistoryToDB();
-        return;
+    if (archiveText.trim()) {
+        // 2. Commit to Semantic Memory (RAG) before deleting
+        // This ensures the information is still retrievable even if not in the active window.
+        await commitToSemanticMemory(`Archived History Chunk (${new Date().toLocaleDateString()}): \n${archiveText}`, 0.4);
+        
+        // 3. Generate a summary update using a fast model
+        const currentSummary = session.storySummary || "The adventure has just begun.";
+        const prompt = `
+          You are a specialized story summarizer for a D&D campaign. 
+          Your task is to integrate new events into an existing "Story Summary".
+          
+          EXISTING SUMMARY:
+          ${currentSummary}
+          
+          NEW EVENTS TO ARCHIVE:
+          ${archiveText}
+          
+          INSTRUCTIONS:
+          - Create a single, cohesive, and concise paragraph that summarizes the entire story so far.
+          - Focus on key plot points, character developments, and major locations.
+          - Keep it under 350 words.
+          - Maintain the tone of the adventure.
+          
+          NEW COHESIVE SUMMARY:
+        `;
+
+        const response = await retryOperation(() => ai.models.generateContent({
+          model: 'gemini-2.5-flash', // Use Flash for speed/cost
+          contents: prompt,
+        })) as GenerateContentResponse;
+
+        const newSummary = response.text || currentSummary;
+        session.storySummary = newSummary;
     }
 
-    // 2. Generate a summary using a fast model
-    const currentSummary = session.storySummary || "No previous summary.";
-    const prompt = `
-      You are a specialized story summarizer for a D&D campaign. 
-      Your task is to integrate new events into an existing "Story Summary".
-      
-      EXISTING SUMMARY:
-      ${currentSummary}
-      
-      NEW EVENTS TO INTEGRATE:
-      ${historyText}
-      
-      INSTRUCTIONS:
-      - Create a single, cohesive, and concise paragraph that summarizes the entire story so far.
-      - Focus on key plot points, character developments, and major locations.
-      - Keep it under 300 words.
-      - Maintain the tone of the adventure.
-      
-      NEW COHESIVE SUMMARY:
-    `;
-
-    const response = await retryOperation(() => ai.models.generateContent({
-      model: 'gemini-2.5-flash', // Use Flash for speed/cost
-      contents: prompt,
-    })) as GenerateContentResponse;
-
-    const newSummary = response.text || currentSummary;
-
-    // 3. Update the session
-    session.storySummary = newSummary;
+    // 4. Update the session messages
     session.messages = remainingMessages;
 
-    // 4. Persist changes
+    // 5. Persist changes
     saveChatHistoryToDB();
-    console.log("Memory Compression Complete. New Summary Length:", newSummary.length);
+    console.log("Memory Compression Complete. Context window reduced.");
 
   } catch (error) {
     console.warn("Memory compression failed (skipped):", error);
@@ -1284,6 +1289,22 @@ export function extractSpatialTopology(rawText: string, session: ChatSession): s
 export async function runChroniclerTurn(playerAction: string) {
   const session = getCurrentChat();
   if (!session) return;
+
+  const settings = getUISettings();
+  const isFlash = settings.engineVariant === 'flash';
+
+  // Lazy Simulation: Throttle Chronicler in Flash mode
+  if (isFlash) {
+    const significantKeywords = ['travel', 'rest', 'wait', 'days', 'weeks', 'months', 'year', 'journey', 'arrive'];
+    const isSignificant = significantKeywords.some(kw => playerAction.toLowerCase().includes(kw));
+    const messageCount = session.messages.length;
+    
+    // Only run every 3 messages unless it's a significant event
+    if (!isSignificant && messageCount % 3 !== 0) {
+      console.log("[CHRONICLER] Skipping turn (Lazy Simulation active)");
+      return;
+    }
+  }
 
   const currentState = {
     progressClocks: session.progressClocks || {},

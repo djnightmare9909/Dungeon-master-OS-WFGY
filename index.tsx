@@ -750,7 +750,8 @@ async function handleFormSubmit(e: Event) {
       // WFGY-Lite: Semantic Memory Retrieval
       let relevantMemories: string[] = [];
       try {
-          relevantMemories = await recallRelevantMemories(userInput, 3);
+          const topK = getUISettings().engineVariant === 'flash' ? 1 : 3;
+          relevantMemories = await recallRelevantMemories(userInput, topK);
       } catch (memErr) {
           console.warn("Memory recall failed, proceeding without context.", memErr);
       }
@@ -809,6 +810,7 @@ async function handleFormSubmit(e: Event) {
             let displayHtml = responseText
               .replace(/\[COMBAT_STATUS:.*?\]/g, '')
               .replace(/<EXECUTE_STATE_CHANGE>.*?<\/EXECUTE_STATE_CHANGE>/gs, '')
+              .replace(/\[LOGBOOK_UPDATE:.*?\]/g, '')
               .replace(/\[INTENT:.*?\]/g, '')
               .trim();
             modelMessageEl.innerHTML = displayHtml;
@@ -843,10 +845,10 @@ async function handleFormSubmit(e: Event) {
 
       // Handle Combat Tracker
       const combatStatusRegex = /\[COMBAT_STATUS:\s*({.*?})\]/;
-      const match = responseText.match(combatStatusRegex);
-      if (match && match[1]) {
+      const combatMatch = responseText.match(combatStatusRegex);
+      if (combatMatch && combatMatch[1]) {
         try {
-          const combatData = JSON.parse(match[1]);
+          const combatData = JSON.parse(combatMatch[1]);
           updateCombatTracker(combatData.enemies);
         } catch (jsonError) {
           console.error("Failed to parse combat status JSON:", jsonError);
@@ -856,7 +858,27 @@ async function handleFormSubmit(e: Event) {
         combatTracker.classList.add('hidden');
       }
 
-      const finalMessage: Message = { sender: 'model', text: responseText.replace(combatStatusRegex, '').trim() };
+      // Handle Logbook Updates (Consolidated State)
+      const logbookUpdateRegex = /\[LOGBOOK_UPDATE:\s*({.*?})\]/;
+      const logbookMatch = responseText.match(logbookUpdateRegex);
+      if (logbookMatch && logbookMatch[1]) {
+        try {
+          const logbookData = JSON.parse(logbookMatch[1]);
+          console.log("Processing consolidated logbook update:", logbookData);
+          
+          if (logbookData.sheet) currentSession.characterSheet = logbookData.sheet;
+          if (logbookData.inventory) currentSession.inventory = logbookData.inventory;
+          if (logbookData.quests) currentSession.questLog = logbookData.quests;
+          if (logbookData.npcs) currentSession.npcList = logbookData.npcs;
+          if (logbookData.achievements) currentSession.achievements = logbookData.achievements;
+          
+          updateLogbook(currentSession);
+        } catch (logbookError) {
+          console.error("Failed to parse logbook update JSON:", logbookError);
+        }
+      }
+
+      const finalMessage: Message = { sender: 'model', text: responseText.replace(combatStatusRegex, '').replace(logbookUpdateRegex, '').trim() };
       currentSession.messages.push(finalMessage);
       saveChatHistoryToDB();
       
