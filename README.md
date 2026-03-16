@@ -3,6 +3,9 @@ a huge shout out to PSbigbig for all your help, be sure to go give him a star on
 ### 🌐 Play Online
 Play Dungeon Master OS directly in your browser at the official website: [dungeonmasteros.com](https://dungeonmasteros.com/)
 
+> [!CAUTION]
+> **Known Bug:** The website currently crashes on start if accessed from a non-Chrome-based browser. Please use Google Chrome, Brave, or Microsoft Edge for the best experience.
+
 YouTube tutorial: https://youtu.be/2TAoK5txIts
 
 ---
