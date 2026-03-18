@@ -112,7 +112,8 @@ class LocalChat {
   private systemInstruction: string = '';
 
   constructor(config: any) {
-    this.systemInstruction = config?.systemInstruction || '';
+    // The config object passed to ai.chats.create has a 'config' property containing systemInstruction
+    this.systemInstruction = config?.config?.systemInstruction || config?.systemInstruction || '';
     if (config?.history) {
       this.history = config.history;
     }
@@ -140,6 +141,8 @@ class LocalChat {
     messages.push({ role: 'user', content: params.message });
 
     console.log(`DM OS: [Local AI Chat] Sending request to ${url} (Model: ${model})`);
+    console.log(`DM OS: [Local AI Chat] System Instruction: ${this.systemInstruction ? 'Present' : 'Missing'}`);
+    console.log(`DM OS: [Local AI Chat] Message Count: ${messages.length}`);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -211,6 +214,8 @@ async function generateContentLocal(params: any): Promise<GenerateContentRespons
   messages.push({ role: 'user', content: prompt });
 
   console.log(`DM OS: [Local AI Content] Calling ${url} with model ${model}`);
+  console.log(`DM OS: [Local AI Content] System Instruction: ${systemInstruction ? 'Present' : 'Missing'}`);
+  console.log(`DM OS: [Local AI Content] Message Count: ${messages.length}`);
 
   const response = await fetch(url, {
     method: 'POST',
