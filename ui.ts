@@ -86,6 +86,8 @@ export const modelCustomInput = document.getElementById('setting-model-custom') 
 export const systemVersionSelect = document.getElementById('setting-system-version') as HTMLSelectElement;
 export const engineVariantSelect = document.getElementById('setting-engine-variant') as HTMLSelectElement;
 export const apiKeyInput = document.getElementById('setting-api-key') as HTMLInputElement;
+export const localAiUrlInput = document.getElementById('setting-local-ai-url') as HTMLInputElement;
+export const localAiModelInput = document.getElementById('setting-local-ai-model') as HTMLInputElement;
 export const saveApiKeyBtn = document.getElementById('save-api-key-btn') as HTMLButtonElement;
 export const changeUiBtn = document.getElementById('change-ui-btn') as HTMLButtonElement;
 export const themeModal = document.getElementById('theme-modal') as HTMLElement;
@@ -157,6 +159,12 @@ export function applyUISettings() {
   }
   if (apiKeyInput) {
       apiKeyInput.value = uiSettings.apiKey || '';
+  }
+  if (localAiUrlInput) {
+      localAiUrlInput.value = uiSettings.localAiUrl || '';
+  }
+  if (localAiModelInput) {
+      localAiModelInput.value = uiSettings.localAiModel || '';
   }
 }
 

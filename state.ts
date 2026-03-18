@@ -38,6 +38,8 @@ let uiSettings: UISettings = {
   experimentalUploadLimit: false,
   activeModel: 'gemini-2.5-flash',
   apiKey: '',
+  localAiUrl: '',
+  localAiModel: '',
   systemVersion: '2.0',
   engineVariant: 'pro',
 };

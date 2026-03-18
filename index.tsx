@@ -92,6 +92,8 @@ import {
   systemVersionSelect,
   engineVariantSelect,
   apiKeyInput,
+  localAiUrlInput,
+  localAiModelInput,
   saveApiKeyBtn,
   changeUiBtn,
   themeModal,
@@ -1360,8 +1362,10 @@ function setupEventListeners() {
   
   if (saveApiKeyBtn) {
       saveApiKeyBtn.addEventListener('click', () => {
-          if (apiKeyInput) {
+          if (apiKeyInput && localAiUrlInput && localAiModelInput) {
               getUISettings().apiKey = apiKeyInput.value.trim();
+              getUISettings().localAiUrl = localAiUrlInput.value.trim();
+              getUISettings().localAiModel = localAiModelInput.value.trim();
               dbSet('dm-os-ui-settings', getUISettings());
               resetAI(); 
               

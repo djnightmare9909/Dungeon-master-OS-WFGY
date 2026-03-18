@@ -3,7 +3,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import { GoogleGenAI, Chat } from '@google/genai';
+import { GoogleGenAI, Chat, GenerateContentResponse } from '@google/genai';
 import type { DMPersona } from './types';
 import { getUISettings } from './state';
 import { retryOperation } from './utils';
@@ -62,15 +62,101 @@ export function resetAI() {
 // Lazily initialize the AI instance.
 export const ai = new Proxy({}, {
   get(target, prop, receiver) {
+    if (prop === 'models') {
+      return {
+        generateContent: async (params: any) => {
+          const settings = getUISettings();
+          if (settings.localAiUrl && settings.localAiUrl.trim().length > 0) {
+            return generateContentLocal(params);
+          }
+          
+          if (!_ai) {
+            const key = getApiKey();
+            _ai = new GoogleGenAI({ apiKey: key });
+          }
+          return _ai.models.generateContent(params);
+        }
+      };
+    }
+
     if (!_ai) {
       const key = getApiKey();
-      // Initialize even if empty, to avoid crash on import. 
-      // Calls will fail with "API Key not found" from SDK later, handled by our try/catches.
       _ai = new GoogleGenAI({ apiKey: key });
     }
     return Reflect.get(_ai, prop, receiver);
   },
 }) as GoogleGenAI;
+
+/**
+ * Calls a local OpenAI-compatible API (like LM Studio).
+ */
+async function generateContentLocal(params: any): Promise<GenerateContentResponse> {
+  const settings = getUISettings();
+  const url = settings.localAiUrl.endsWith('/') ? settings.localAiUrl + 'chat/completions' : settings.localAiUrl + '/chat/completions';
+  const model = settings.localAiModel || 'local-model';
+
+  // Convert Gemini params to OpenAI format
+  let prompt = '';
+  if (typeof params.contents === 'string') {
+    prompt = params.contents;
+  } else if (Array.isArray(params.contents)) {
+    prompt = params.contents.map((c: any) => c.parts.map((p: any) => p.text).join('\n')).join('\n');
+  } else if (params.contents && params.contents.parts) {
+    prompt = params.contents.parts.map((p: any) => p.text).join('\n');
+  }
+
+  const systemInstruction = params.config?.systemInstruction || '';
+
+  const messages = [];
+  if (systemInstruction) {
+    messages.push({ role: 'system', content: systemInstruction });
+  }
+  messages.push({ role: 'user', content: prompt });
+
+  console.log(`DM OS: Calling Local AI at ${url} with model ${model}`);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: messages,
+      temperature: params.config?.temperature ?? 0.7,
+      stream: false,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Local AI Error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices[0].message.content;
+
+  // Mock a Gemini response object
+  return {
+    text: text,
+    candidates: [
+      {
+        content: {
+          parts: [{ text: text }],
+          role: 'model'
+        },
+        finishReason: 'STOP',
+        index: 0,
+        safetyRatings: []
+      }
+    ],
+    usageMetadata: {
+      promptTokenCount: 0,
+      candidatesTokenCount: 0,
+      totalTokenCount: 0
+    }
+  } as any;
+}
 
 export function getNewGameSetupInstruction(version: '2.0' | '3.0' = '2.0'): string {
   return `You are the Setup AI for DM OS (Dungeon Master Operating System) v${version}. Your goal is to guide the user through the initial configuration of their new D&D 5e adventure.

@@ -21,6 +21,8 @@ export interface UISettings {
   experimentalUploadLimit: boolean;
   activeModel: string;
   apiKey: string;
+  localAiUrl: string;
+  localAiModel: string;
   systemVersion: '2.0' | '3.0';
   engineVariant: 'pro' | 'flash';
 }
