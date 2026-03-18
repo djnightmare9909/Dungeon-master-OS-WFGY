@@ -62,19 +62,36 @@ export function resetAI() {
 // Lazily initialize the AI instance.
 export const ai = new Proxy({}, {
   get(target, prop, receiver) {
+    const settings = getUISettings();
+    const isLocal = settings.localAiUrl && settings.localAiUrl.trim().length > 0;
+
     if (prop === 'models') {
       return {
         generateContent: async (params: any) => {
-          const settings = getUISettings();
-          if (settings.localAiUrl && settings.localAiUrl.trim().length > 0) {
-            return generateContentLocal(params);
-          }
-          
-          if (!_ai) {
-            const key = getApiKey();
-            _ai = new GoogleGenAI({ apiKey: key });
-          }
+          if (isLocal) return generateContentLocal(params);
+          if (!_ai) _ai = new GoogleGenAI({ apiKey: getApiKey() });
           return _ai.models.generateContent(params);
+        },
+        embedContent: async (params: any) => {
+          if (isLocal) {
+            console.log("DM OS: [Local AI] Mocking embedding call.");
+            return { embedding: { values: new Array(768).fill(0) } };
+          }
+          if (!_ai) _ai = new GoogleGenAI({ apiKey: getApiKey() });
+          return _ai.models.embedContent(params);
+        }
+      };
+    }
+
+    if (prop === 'chats') {
+      return {
+        create: (config: any) => {
+          if (isLocal) {
+            console.log("DM OS: [Local AI] Creating Local Chat Session.");
+            return new LocalChat(config);
+          }
+          if (!_ai) _ai = new GoogleGenAI({ apiKey: getApiKey() });
+          return _ai.chats.create(config);
         }
       };
     }
@@ -88,11 +105,91 @@ export const ai = new Proxy({}, {
 }) as GoogleGenAI;
 
 /**
+ * Mock Chat class for local AI (LM Studio / OpenAI compatible).
+ */
+class LocalChat {
+  private history: any[] = [];
+  private systemInstruction: string = '';
+
+  constructor(config: any) {
+    this.systemInstruction = config?.systemInstruction || '';
+    if (config?.history) {
+      this.history = config.history;
+    }
+  }
+
+  async sendMessage(params: { message: string }): Promise<GenerateContentResponse> {
+    const settings = getUISettings();
+    const baseUrl = settings.localAiUrl.replace(/\/+$/, '');
+    const url = `${baseUrl}/chat/completions`;
+    const model = settings.localAiModel || 'local-model';
+
+    const messages: any[] = [];
+    if (this.systemInstruction) {
+      messages.push({ role: 'system', content: this.systemInstruction });
+    }
+    
+    // Convert Gemini history to OpenAI format
+    for (const msg of this.history) {
+      messages.push({ 
+        role: msg.role === 'user' ? 'user' : 'assistant', 
+        content: msg.parts[0].text 
+      });
+    }
+    
+    messages.push({ role: 'user', content: params.message });
+
+    console.log(`DM OS: [Local AI Chat] Sending request to ${url} (Model: ${model})`);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model,
+        messages: messages,
+        temperature: 0.7,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Local AI Error (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices[0].message.content;
+
+    // Update internal history to match Gemini's stateful chat
+    this.history.push({ role: 'user', parts: [{ text: params.message }] });
+    this.history.push({ role: 'model', parts: [{ text: text }] });
+
+    return {
+      text: text,
+      candidates: [{ 
+        content: { parts: [{ text: text }], role: 'model' }, 
+        finishReason: 'STOP', 
+        index: 0, 
+        safetyRatings: [] 
+      }],
+      usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 }
+    } as any;
+  }
+
+  async *sendMessageStream(params: { message: string }): AsyncGenerator<GenerateContentResponse> {
+    // For now, we yield the full response once to ensure stability.
+    const result = await this.sendMessage(params);
+    yield result;
+  }
+}
+
+/**
  * Calls a local OpenAI-compatible API (like LM Studio).
  */
 async function generateContentLocal(params: any): Promise<GenerateContentResponse> {
   const settings = getUISettings();
-  const url = settings.localAiUrl.endsWith('/') ? settings.localAiUrl + 'chat/completions' : settings.localAiUrl + '/chat/completions';
+  const baseUrl = settings.localAiUrl.replace(/\/+$/, '');
+  const url = `${baseUrl}/chat/completions`;
   const model = settings.localAiModel || 'local-model';
 
   // Convert Gemini params to OpenAI format
@@ -113,7 +210,7 @@ async function generateContentLocal(params: any): Promise<GenerateContentRespons
   }
   messages.push({ role: 'user', content: prompt });
 
-  console.log(`DM OS: Calling Local AI at ${url} with model ${model}`);
+  console.log(`DM OS: [Local AI Content] Calling ${url} with model ${model}`);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -274,6 +371,12 @@ export function createNewChatInstance(history: { role: 'user' | 'model'; parts: 
  * @returns A promise resolving to an array of numbers (the vector).
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
+    const settings = getUISettings();
+    if (settings.localAiUrl && settings.localAiUrl.trim().length > 0) {
+        console.log("DM OS: [Local AI] Mocking embedding for text:", text.substring(0, 50) + "...");
+        return new Array(768).fill(0);
+    }
+
     return retryOperation(async () => {
         try {
             const response = await ai.models.embedContent({
