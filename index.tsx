@@ -328,7 +328,7 @@ async function startNewChat() {
     }
     
     if (errorMessage.includes('API Key') || errorMessage.includes('API key') || errorMessage.includes('403') || error.status === 403 || error.code === 403) {
-        errorMessage = "⚠️ API Key Required: To use DM OS, you must have a Google AI Studio API key.\n\n1. Get your key from Google AI Studio (aistudio.google.com).\n2. Open the Logbook (top right), go to Settings, paste your key, and Save.";
+        errorMessage = "⚠️ AI Connection Required: To use DM OS, you must have a valid Google AI Studio API key OR a configured Local AI server.\n\n1. For Gemini: Get your key from Google AI Studio (aistudio.google.com).\n2. For Local AI: Ensure your server (LM Studio, etc.) is running and accessible.\n3. Open the Logbook (top right), go to Settings, configure your AI source, and Save.";
         // Auto-open settings
         openModal(logbookModal);
         const settingsTabBtn = document.querySelector('[data-tab="settings"]') as HTMLElement;
@@ -381,7 +381,7 @@ function loadChat(id: string) {
       if (error instanceof Error) {
           errorMessage = `Error initializing AI: ${error.message}`;
           if (errorMessage.includes('API Key') || errorMessage.includes('API key') || errorMessage.includes('403') || (error as any).status === 403 || (error as any).code === 403) {
-              errorMessage = "⚠️ API Key Required: To use DM OS, you must have a Google AI Studio API key.\n\n1. Get your key from Google AI Studio (aistudio.google.com).\n2. Open the Logbook (top right), go to Settings, paste your key, and Save.";
+              errorMessage = "⚠️ AI Connection Required: To use DM OS, you must have a valid Google AI Studio API key OR a configured Local AI server.\n\n1. For Gemini: Get your key from Google AI Studio (aistudio.google.com).\n2. For Local AI: Ensure your server (LM Studio, etc.) is running and accessible.\n3. Open the Logbook (top right), go to Settings, configure your AI source, and Save.";
               // Auto-open settings
               openModal(logbookModal);
               const settingsTabBtn = document.querySelector('[data-tab="settings"]') as HTMLElement;
@@ -923,7 +923,7 @@ async function handleFormSubmit(e: Event) {
       if (error instanceof Error) {
           errorMessage = `AI Connection Error: ${error.message}`;
           if (errorMessage.includes('API Key') || errorMessage.includes('API key') || errorMessage.includes('403') || (error as any).status === 403 || (error as any).code === 403) {
-              errorMessage = "⚠️ API Key Required: To use DM OS, you must have a Google AI Studio API key.\n\n1. Get your key from Google AI Studio (aistudio.google.com).\n2. Open the Logbook (top right), go to Settings, paste your key, and Save.";
+              errorMessage = "⚠️ AI Connection Required: To use DM OS, you must have a valid Google AI Studio API key OR a configured Local AI server.\n\n1. For Gemini: Get your key from Google AI Studio (aistudio.google.com).\n2. For Local AI: Ensure your server (LM Studio, etc.) is running and accessible.\n3. Open the Logbook (top right), go to Settings, configure your AI source, and Save.";
               openModal(logbookModal);
               const settingsTabBtn = document.querySelector('[data-tab="settings"]') as HTMLElement;
               if (settingsTabBtn) settingsTabBtn.click();
