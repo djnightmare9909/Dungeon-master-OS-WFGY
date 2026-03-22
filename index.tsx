@@ -1435,8 +1435,16 @@ function setupEventListeners() {
       quickActionsBar.addEventListener('click', (e) => {
           const button = (e.target as HTMLElement).closest<HTMLButtonElement>('.quick-action-btn');
           if (button?.dataset.command) {
-              chatInput.value += button.dataset.command;
+              const command = button.dataset.command;
+              const currentLength = chatInput.value.length;
+              chatInput.value += command;
               chatInput.focus();
+              
+              const quoteIndex = command.indexOf('""');
+              if (quoteIndex !== -1) {
+                  const newCursorPos = currentLength + quoteIndex + 1;
+                  chatInput.setSelectionRange(newCursorPos, newCursorPos);
+              }
           }
       });
   }
