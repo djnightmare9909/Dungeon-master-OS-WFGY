@@ -44,6 +44,7 @@ let uiSettings: UISettings = {
   localAiModel: '',
   systemVersion: '2.0',
   engineVariant: 'pro',
+  ttsEnabled: false,
 };
 
 // =================================================================================

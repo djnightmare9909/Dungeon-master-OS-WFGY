@@ -55,7 +55,6 @@ export const COC_7E_RULESET: Ruleset = {
     healthLanguage: 'Hit Points and Sanity',
     actionLanguage: 'skill checks and characteristic rolls',
     mechanicsReference: `
-*   **CRITICAL:** This is NOT a D&D game. Never use D&D 5e terminology (e.g., "Armor Class", "Saving Throw", "Ability Check", "Hit Dice"). Use only Call of Cthulhu 7e mechanics.
 *   **Skill Checks:** Roll d100. Success if <= skill value.
     *   Regular Success: <= Skill
     *   Hard Success: <= 1/2 Skill

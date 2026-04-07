@@ -7,8 +7,12 @@
 import { Type, GenerateContentResponse } from '@google/genai';
 import { inject } from '@vercel/analytics';
 
+import { GeminiTTSPlayer } from './gemini-tts';
+
 // Initialize Vercel Analytics
 inject();
+
+const ttsPlayer = new GeminiTTSPlayer('');
 
 import {
   initDB,
@@ -129,6 +133,7 @@ import {
   appendFileProcessingMessage,
   contextManager,
   contextHeader,
+  ttsToggleBtn,
 } from './ui';
 import {
   addUserContext,
@@ -346,6 +351,7 @@ async function startNewChat() {
  * @param id The ID of the chat session to load.
  */
 function loadChat(id: string) {
+  ttsPlayer.stop();
   const currentChatId = getCurrentChat()?.id;
   if (currentChatId === id && !document.body.classList.contains('sidebar-open')) {
     return;
@@ -516,21 +522,42 @@ async function finalizeSetupAndStartGame(session: ChatSession, title: string, fi
     setChroniclerChat(createNewChatInstance([], getChroniclerPrompt(), 'gemini-2.5-flash'));
 
     if (!finalSetupMessage) {
+      ttsPlayer.stop();
       const kickoffResult = await retryOperation(() => getGeminiChat()!.sendMessageStream({ message: "The setup is complete. Begin the adventure by narrating the opening scene." })) as any;
 
-      let openingSceneText = '';
+      let responseText = '';
+      let lastSentIndex = 0;
       gameLoadingMessage.classList.remove('loading');
       gameLoadingMessage.innerHTML = '';
       for await (const chunk of kickoffResult) {
-        openingSceneText += chunk.text || '';
-        gameLoadingMessage.innerHTML = openingSceneText;
+        responseText += chunk.text || '';
+        gameLoadingMessage.innerHTML = responseText;
         if (shouldScroll) {
           chatContainer.scrollTop = chatContainer.scrollHeight;
         }
+
+        if (getUISettings().ttsEnabled) {
+          const textToProcess = responseText.substring(lastSentIndex);
+          const sentences = textToProcess.match(/[^.!?]+[.!?]+/g);
+          if (sentences) {
+            sentences.forEach(s => {
+              ttsPlayer.speak(s.trim(), 'Zephyr', false);
+              lastSentIndex += s.length;
+            });
+          }
+        }
       }
+      
+      if (getUISettings().ttsEnabled) {
+        const remainingText = responseText.substring(lastSentIndex);
+        if (remainingText.trim()) {
+          ttsPlayer.speak(remainingText.trim(), 'Zephyr', false);
+        }
+      }
+      
       gameLoadingContainer.remove();
 
-      const openingSceneMessage: Message = { sender: 'model', text: openingSceneText };
+      const openingSceneMessage: Message = { sender: 'model', text: responseText };
       appendMessage(openingSceneMessage);
       session.messages.push(openingSceneMessage);
       saveChatHistoryToDB();
@@ -557,6 +584,8 @@ async function handleFormSubmit(e: Event) {
     const userInput = chatInput.value.trim();
     const currentSession = getCurrentChat();
     if (!userInput || !currentSession) return;
+
+    ttsPlayer.stop();
 
     const lowerCaseInput = userInput.toLowerCase().replace(/[?]/g, '');
 
@@ -625,6 +654,7 @@ async function handleFormSubmit(e: Event) {
 
         const result = await retryOperation(() => geminiChat.sendMessageStream({ message: messageToSend })) as any;
         let responseText = '';
+        let lastSentIndex = 0;
         modelMessageEl.classList.remove('loading');
         modelMessageEl.innerHTML = '';
 
@@ -633,6 +663,24 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.innerHTML = responseText;
           if (shouldScroll) {
             chatContainer.scrollTop = chatContainer.scrollHeight;
+          }
+
+          if (getUISettings().ttsEnabled) {
+            const textToProcess = responseText.substring(lastSentIndex);
+            const sentences = textToProcess.match(/[^.!?]+[.!?]+/g);
+            if (sentences) {
+              sentences.forEach(s => {
+                ttsPlayer.speak(s.trim(), 'Zephyr', false);
+                lastSentIndex += s.length;
+              });
+            }
+          }
+        }
+
+        if (getUISettings().ttsEnabled) {
+          const remainingText = responseText.substring(lastSentIndex);
+          if (remainingText.trim()) {
+            ttsPlayer.speak(remainingText.trim(), 'Zephyr', false);
           }
         }
 
@@ -818,6 +866,7 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.classList.remove('loading');
           modelMessageEl.innerHTML = '';
 
+          let lastSentIndex = 0;
           for await (const chunk of result) {
             responseText += chunk.text || '';
             let displayHtml = responseText
@@ -829,6 +878,37 @@ async function handleFormSubmit(e: Event) {
             modelMessageEl.innerHTML = displayHtml;
             if (shouldScroll) {
               chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            if (getUISettings().ttsEnabled) {
+              const cleanText = responseText
+                .replace(/\[COMBAT_STATUS:.*?\]/g, '')
+                .replace(/<EXECUTE_STATE_CHANGE>.*?<\/EXECUTE_STATE_CHANGE>/gs, '')
+                .replace(/\[LOGBOOK_UPDATE:.*?\]/g, '')
+                .replace(/\[INTENT:.*?\]/g, '')
+                .trim();
+              
+              const textToProcess = cleanText.substring(lastSentIndex);
+              const sentences = textToProcess.match(/[^.!?]+[.!?]+/g);
+              if (sentences) {
+                sentences.forEach(s => {
+                  ttsPlayer.speak(s.trim(), 'Zephyr', false);
+                  lastSentIndex += s.length;
+                });
+              }
+            }
+          }
+
+          if (getUISettings().ttsEnabled) {
+            const cleanText = responseText
+              .replace(/\[COMBAT_STATUS:.*?\]/g, '')
+              .replace(/<EXECUTE_STATE_CHANGE>.*?<\/EXECUTE_STATE_CHANGE>/gs, '')
+              .replace(/\[LOGBOOK_UPDATE:.*?\]/g, '')
+              .replace(/\[INTENT:.*?\]/g, '')
+              .trim();
+            const remainingText = cleanText.substring(lastSentIndex);
+            if (remainingText.trim()) {
+              ttsPlayer.speak(remainingText.trim(), 'Zephyr', false);
             }
           }
 
@@ -1385,6 +1465,7 @@ function setupEventListeners() {
               getUISettings().localAiUrl = localAiUrlInput.value.trim();
               getUISettings().localAiModel = localAiModelInput.value.trim();
               dbSet('dm-os-ui-settings', getUISettings());
+              ttsPlayer.setApiKey(getUISettings().apiKey);
               resetAI(); 
               
               const originalText = saveApiKeyBtn.textContent;
@@ -1399,6 +1480,19 @@ function setupEventListeners() {
   }
 
   if (changeUiBtn) changeUiBtn.addEventListener('click', () => openModal(themeModal));
+  
+  if (ttsToggleBtn) {
+    ttsToggleBtn.addEventListener('click', () => {
+      const settings = getUISettings();
+      settings.ttsEnabled = !settings.ttsEnabled;
+      dbSet('dm-os-ui-settings', settings);
+      applyUISettings();
+      
+      if (!settings.ttsEnabled) {
+        ttsPlayer.stop();
+      }
+    });
+  }
   if (closeThemeBtn) closeThemeBtn.addEventListener('click', () => closeModal(themeModal));
   if (themeGrid) {
       themeGrid.addEventListener('click', (e) => {
@@ -1499,6 +1593,13 @@ function setupEventListeners() {
 /**
  * Initializes the application.
  */
+// --- TTS Event Listener ---
+window.addEventListener('speak-message', (e: any) => {
+  if (e.detail && e.detail.text) {
+    ttsPlayer.speak(e.detail.text, 'Zephyr', true);
+  }
+});
+
 async function initApp() {
   try {
       await initDB();
@@ -1516,6 +1617,7 @@ async function initApp() {
 
       if (savedUiSettings) {
         setUISettings({ ...getUISettings(), ...savedUiSettings });
+        ttsPlayer.setApiKey(savedUiSettings.apiKey || '');
       }
       
       const version = getUISettings().systemVersion || '2.0';

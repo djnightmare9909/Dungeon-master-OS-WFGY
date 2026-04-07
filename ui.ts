@@ -60,6 +60,7 @@ export const clearResultsBtn = document.getElementById('clear-results-btn') as H
 export const diceResultsLog = document.getElementById('dice-results-log') as HTMLElement;
 export const diceTotalValue = document.getElementById('dice-total-value') as HTMLElement;
 export const logbookBtn = document.getElementById('logbook-btn') as HTMLButtonElement;
+export const ttsToggleBtn = document.getElementById('tts-toggle-btn') as HTMLButtonElement;
 export const logbookModal = document.getElementById('logbook-modal') as HTMLElement;
 export const closeLogbookBtn = document.getElementById('close-logbook-btn') as HTMLButtonElement;
 export const logbookNav = document.querySelector('.logbook-nav') as HTMLElement;
@@ -171,6 +172,14 @@ export function applyUISettings() {
   if (localAiModelInput) {
       localAiModelInput.value = uiSettings.localAiModel || '';
   }
+
+  if (ttsToggleBtn) {
+    if (uiSettings.ttsEnabled) {
+      ttsToggleBtn.classList.add('active');
+    } else {
+      ttsToggleBtn.classList.remove('active');
+    }
+  }
 }
 
 // =================================================================================
@@ -279,6 +288,21 @@ export function appendMessage(message: Message, container: HTMLElement = chatCon
     messageElement.classList.add('message', message.sender);
     messageElement.innerHTML = message.text;
     msgContainer.appendChild(messageElement);
+
+    const ttsBtn = document.createElement('button');
+    ttsBtn.className = 'message-tts-btn';
+    ttsBtn.setAttribute('aria-label', 'Speak message');
+    ttsBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+      </svg>
+    `;
+    ttsBtn.onclick = (e) => {
+      e.stopPropagation();
+      const event = new CustomEvent('speak-message', { detail: { text: message.text } });
+      window.dispatchEvent(event);
+    };
+    msgContainer.appendChild(ttsBtn);
 
     container.appendChild(msgContainer);
   }

@@ -21,7 +21,7 @@ export function migrateAndValidateSession(session: any): ChatSession {
   newSession.isPinned = typeof session.isPinned === 'boolean' ? session.isPinned : false;
 
   if (Array.isArray(session.messages)) {
-    newSession.messages = session.messages.filter(m =>
+    newSession.messages = session.messages.filter((m: any) =>
       typeof m === 'object' && m !== null &&
       typeof m.sender === 'string' &&
       typeof m.text === 'string'
@@ -72,7 +72,7 @@ export function migrateAndValidateSession(session: any): ChatSession {
 
 
   if (Array.isArray(session.achievements)) {
-    newSession.achievements = session.achievements.filter(a =>
+    newSession.achievements = session.achievements.filter((a: any) =>
       typeof a === 'object' && a !== null &&
       typeof a.name === 'string' &&
       typeof a.description === 'string'
