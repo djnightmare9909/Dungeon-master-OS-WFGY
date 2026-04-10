@@ -1165,32 +1165,6 @@ main {
   max-width: 85%;
 }
 
-.message-tts-btn {
-  background: none;
-  border: none;
-  color: var(--text-secondary-color);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 8px;
-  opacity: 0.6;
-}
-
-.message-tts-btn:hover {
-  color: var(--accent-color);
-  background: var(--sidebar-color);
-  opacity: 1;
-}
-
-.message-tts-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
 .message.model {
   background-color: var(--model-message-bg);
   align-self: flex-start;
@@ -1381,34 +1355,6 @@ footer {
     opacity: 0.5;
 }
 #inventory-btn svg {
-  width: 22px;
-  height: 22px;
-}
-
-#tts-toggle-btn {
-  background: none;
-  border: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  flex-shrink: 0;
-  color: var(--text-secondary-color);
-  padding: 0;
-}
-#tts-toggle-btn:hover {
-  background-color: var(--sidebar-color);
-  color: var(--text-color);
-}
-#tts-toggle-btn.active {
-  color: var(--accent-color);
-  background-color: rgba(255, 255, 255, 0.1);
-}
-#tts-toggle-btn svg {
   width: 22px;
   height: 22px;
 }

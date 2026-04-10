@@ -25,7 +25,6 @@ export interface UISettings {
   localAiModel: string;
   systemVersion: '2.0' | '3.0';
   engineVariant: 'pro' | 'flash';
-  ttsEnabled: boolean;
 }
 
 export interface AbilityScore {
