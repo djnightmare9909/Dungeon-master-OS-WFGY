@@ -521,6 +521,90 @@ export function renderUserContext(userContext: string[]) {
     });
 }
 
+/**
+ * Renders an AAA-quality tree navigation for the logbook.
+ * @param activeTabId The currently active tab ID (e.g., 'character-sheet').
+ * @returns The generated HTML string.
+ */
+export function renderLogbookTree(activeTabId: string): string {
+    // Define tree structure: category -> items with tab IDs and optional icons
+    const treeStructure = [
+        {
+            name: 'Player',
+            icon: 'user',
+            items: [
+                { name: 'Character Sheet', tabId: 'character-sheet', icon: 'user-circle' },
+                { name: 'Inventory', tabId: 'inventory', icon: 'package' }
+            ]
+        },
+        {
+            name: 'Adventure Log',
+            icon: 'book-open',
+            items: [
+                { name: 'Quests', tabId: 'quests', icon: 'scroll-text' },
+                { name: 'NPCs', tabId: 'npcs', icon: 'users' }
+            ]
+        },
+        {
+            name: 'Progress',
+            icon: 'trophy',
+            items: [
+                { name: 'Achievements', tabId: 'achievements', icon: 'award' }
+            ]
+        },
+        {
+            name: 'System',
+            icon: 'settings',
+            items: [
+                { name: 'Settings', tabId: 'settings', icon: 'sliders' }
+            ]
+        }
+    ];
+
+    const buildTree = (nodes: any[], level = 0): string => {
+        return nodes.map(node => {
+            const hasChildren = node.items && node.items.length > 0;
+            const isActive = node.items ? node.items.some((item: any) => item.tabId === activeTabId) : (node.tabId === activeTabId);
+            // For categories, we don't highlight the whole category, only items.
+            // But we can add a data attribute for expand/collapse.
+            const childrenHtml = hasChildren ? `<ul class="tree-children" data-expanded="true">${buildTree(node.items, level + 1)}</ul>` : '';
+            const nodeClass = node.tabId ? 'tree-node-leaf' : 'tree-node-category';
+            const activeClass = (node.tabId === activeTabId) ? 'active' : '';
+
+            // Icons using data-lucide for later rendering
+            const iconSvg = node.icon ? `<i data-lucide="${node.icon}" class="tree-icon"></i>` : '';
+            const expandIcon = hasChildren ? `<i data-lucide="chevron-down" class="tree-expand-icon"></i>` : '<span style="width: 24px;"></span>';
+
+            if (node.tabId) {
+                // Leaf item
+                return `
+                    <li>
+                        <div class="tree-node ${activeClass}" data-tab="${node.tabId}">
+                            ${expandIcon}
+                            ${iconSvg}
+                            <span>${node.name}</span>
+                        </div>
+                    </li>
+                `;
+            } else {
+                // Category (collapsible)
+                return `
+                    <li>
+                        <div class="tree-node-category tree-node" data-category="${node.name.toLowerCase()}">
+                            ${expandIcon}
+                            ${iconSvg}
+                            <span>${node.name}</span>
+                        </div>
+                        ${childrenHtml}
+                    </li>
+                `;
+            }
+        }).join('');
+    };
+
+    return `<ul class="tree">${buildTree(treeStructure)}</ul>`;
+}
+
 export function updateCombatTracker(enemies: { name: string, status: string }[]) {
   if (!combatTracker || !combatEnemyList) return;
   

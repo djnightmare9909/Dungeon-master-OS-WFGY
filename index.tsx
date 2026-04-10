@@ -125,6 +125,7 @@ import {
   appendFileProcessingMessage,
   contextManager,
   contextHeader,
+  renderLogbookTree,
 } from './ui';
 import {
   addUserContext,
@@ -167,6 +168,56 @@ import type { Message, ChatSession, UISettings, GameSettings } from './types';
 
 let chatIdToRename: string | null = null;
 let chatIdToDelete: string | null = null;
+let currentActiveTab = 'character-sheet';
+
+// Function to refresh logbook tree highlighting
+function refreshLogbookTree() {
+    const navContainer = document.getElementById('logbook-nav');
+    if (!navContainer) return;
+    const activePane = document.querySelector('.logbook-pane.active')?.id;
+    let activeTabId = 'character-sheet';
+    if (activePane) {
+        activeTabId = activePane.replace('-content', '');
+    }
+    navContainer.innerHTML = renderLogbookTree(activeTabId);
+    // Re-attach expand/collapse listeners
+    attachTreeExpandListeners();
+    // Re-initialize Lucide icons
+    if (typeof (window as any).lucide !== 'undefined') {
+        (window as any).lucide.createIcons();
+    }
+    // Highlight active leaf
+    const activeNode = navContainer.querySelector(`.tree-node[data-tab="${activeTabId}"]`);
+    if (activeNode) {
+        activeNode.classList.add('active');
+    }
+}
+
+function attachTreeExpandListeners() {
+    const expandIcons = document.querySelectorAll('.tree-expand-icon');
+    expandIcons.forEach(icon => {
+        icon.removeEventListener('click', handleExpandClick);
+        icon.addEventListener('click', handleExpandClick);
+    });
+}
+
+function handleExpandClick(e: Event) {
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    const parentLi = target.closest('li');
+    if (!parentLi) return;
+    const childrenContainer = parentLi.querySelector(':scope > .tree-children');
+    if (childrenContainer) {
+        childrenContainer.classList.toggle('collapsed');
+        // Rotate icon
+        const icon = target.querySelector('i') || target;
+        if (childrenContainer.classList.contains('collapsed')) {
+            icon.style.transform = 'rotate(-90deg)';
+        } else {
+            icon.style.transform = 'rotate(0deg)';
+        }
+    }
+}
 
 const quickStartCharacterSchema = {
   type: Type.OBJECT,
@@ -1189,7 +1240,12 @@ function setupEventListeners() {
   if (closeHelpBtn) closeHelpBtn.addEventListener('click', () => closeModal(helpModal));
   if (dndHelpBtn) dndHelpBtn.addEventListener('click', () => openModal(dndHelpModal));
   if (closeDndHelpBtn) closeDndHelpBtn.addEventListener('click', () => closeModal(dndHelpModal));
-  if (logbookBtn) logbookBtn.addEventListener('click', () => openModal(logbookModal));
+  if (logbookBtn) {
+      logbookBtn.addEventListener('click', () => {
+          refreshLogbookTree();
+          openModal(logbookModal);
+      });
+  }
   if (closeLogbookBtn) closeLogbookBtn.addEventListener('click', () => closeModal(logbookModal));
   if (diceRollerBtn) diceRollerBtn.addEventListener('click', () => openModal(diceModal));
   if (closeDiceBtn) closeDiceBtn.addEventListener('click', () => closeModal(diceModal));
@@ -1280,24 +1336,33 @@ function setupEventListeners() {
 
   if (logbookNav) {
       logbookNav.addEventListener('click', (e) => {
-        const button = (e.target as HTMLElement).closest<HTMLElement>('.logbook-nav-btn');
-        if (button?.dataset.tab) {
-          const tab = button.dataset.tab;
-          // Update active state for buttons
-          logbookNav.querySelectorAll('.logbook-nav-btn').forEach(btn => btn.classList.remove('active'));
-          button.classList.add('active');
+          const target = e.target as HTMLElement;
+          const treeNode = target.closest('.tree-node');
+          if (!treeNode) return;
 
-          // Show the correct content pane
-          logbookPanes.forEach(pane => {
-            pane.classList.toggle('active', pane.id === `${tab}-content`);
-          });
-
-          // Jump to the top of the content pane when switching tabs.
-          const logbookContent = logbookNav.nextElementSibling as HTMLElement;
-          if (logbookContent) {
-            logbookContent.scrollTop = 0;
+          // Handle expand/collapse if clicking on expand icon (already handled by separate listener)
+          if (target.closest('.tree-expand-icon')) {
+              return;
           }
-        }
+
+          const tabId = treeNode.getAttribute('data-tab');
+          if (tabId) {
+              // Show the correct content pane
+              const paneId = `${tabId}-content`;
+              const activePane = document.querySelector('.logbook-pane.active');
+              if (activePane) activePane.classList.remove('active');
+              const newPane = document.getElementById(paneId);
+              if (newPane) newPane.classList.add('active');
+              
+              // Update active class on tree
+              document.querySelectorAll('.tree-node').forEach(node => node.classList.remove('active'));
+              treeNode.classList.add('active');
+              currentActiveTab = tabId;
+
+              // Jump to top
+              const logbookContent = logbookNav.nextElementSibling as HTMLElement;
+              if (logbookContent) logbookContent.scrollTop = 0;
+          }
       });
   }
 
@@ -1528,6 +1593,7 @@ async function initApp() {
       renderThemeCards();
       renderUserContext(getUserContext());
       renderChatHistory();
+      refreshLogbookTree();
 
       const history = getChatHistory();
       if (history.length > 0) {

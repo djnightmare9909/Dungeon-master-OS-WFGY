@@ -2794,3 +2794,127 @@ input:checked + .slider:before {
     grid-template-columns: 1fr;
   }
 }
+
+/* ========== AAA TREE VIEW ========== */
+.logbook-nav {
+    background: transparent;
+    padding: 0.5rem 0;
+    overflow-y: auto;
+    min-width: 220px;
+}
+
+.tree {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.9rem;
+}
+
+.tree,
+.tree ul {
+    list-style: none;
+    margin: 0;
+    padding-left: 0;
+}
+
+.tree li {
+    position: relative;
+    padding: 0;
+    margin: 0;
+}
+
+.tree-node {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.tree-node:hover {
+    background-color: var(--user-message-bg);
+}
+
+.tree-node.active {
+    background-color: var(--accent-color);
+    color: var(--background-color);
+    font-weight: 500;
+}
+
+.tree-node.active .tree-icon {
+    color: var(--background-color);
+}
+
+.tree-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--text-secondary-color);
+    transition: transform 0.2s ease;
+}
+
+.tree-expand-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 0.25rem;
+    transition: transform 0.2s ease;
+    cursor: pointer;
+    color: var(--text-secondary-color);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tree-expand-icon:hover {
+    color: var(--accent-color);
+}
+
+.tree-children {
+    margin-left: 1.75rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: max-height 0.25s ease-out;
+    max-height: 1000px; /* fallback for animation */
+}
+
+.tree-children.collapsed {
+    max-height: 0;
+    padding-bottom: 0;
+}
+
+/* Indent guide lines (optional decorative) */
+.tree li:not(:last-child) > .tree-children {
+    border-left-color: var(--border-color);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .logbook-nav {
+        min-width: auto;
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 0.25rem;
+        max-height: 200px;
+    }
+    .tree-children {
+        margin-left: 1rem;
+    }
+}
+
+/* Smooth scrolling */
+.logbook-nav::-webkit-scrollbar {
+    width: 6px;
+}
+.logbook-nav::-webkit-scrollbar-track {
+    background: var(--background-color);
+    border-radius: 3px;
+}
+.logbook-nav::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
