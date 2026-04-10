@@ -55,21 +55,81 @@ import {
 import type { CharacterSheetData, Achievement, NPCState, SemanticNode, Scar, Message, ChatSession, ActiveEncounters, ProgressClock, Faction } from './types';
 
 // =================================================================================
+// PRNG: MERSENNE TWISTER
+// =================================================================================
+
+class MersenneTwister {
+  private mt = new Array(624);
+  private index = 0;
+
+  constructor(seed: number = Date.now()) {
+    this.mt[0] = seed >>> 0;
+    for (let i = 1; i < 624; i++) {
+      let s = this.mt[i - 1] ^ (this.mt[i - 1] >>> 30);
+      this.mt[i] = (((((s & 0xffff0000) >>> 16) * 1812433253) << 16) + (s & 0x0000ffff) * 1812433253 + i) >>> 0;
+    }
+  }
+
+  public nextInt(): number {
+    if (this.index === 0) {
+      this.generateNumbers();
+    }
+
+    let y = this.mt[this.index];
+    y ^= (y >>> 11);
+    y ^= (y << 7) & 0x9d2c5680;
+    y ^= (y << 15) & 0xefc60000;
+    y ^= (y >>> 18);
+
+    this.index = (this.index + 1) % 624;
+    return y >>> 0;
+  }
+
+  private generateNumbers() {
+    for (let i = 0; i < 624; i++) {
+      let y = (this.mt[i] & 0x80000000) + (this.mt[(i + 1) % 624] & 0x7fffffff);
+      this.mt[i] = this.mt[(i + 397) % 624] ^ (y >>> 1);
+      if (y % 2 !== 0) {
+        this.mt[i] ^= 0x9908b0df;
+      }
+    }
+  }
+
+  public random(): number {
+    return this.nextInt() * (1.0 / 4294967296.0);
+  }
+}
+
+const mt = new MersenneTwister();
+
+// =================================================================================
 // DICE ROLLER
 // =================================================================================
 
 export function renderDiceGrid() {
   const diceTypes = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'];
-  diceGrid.innerHTML = diceTypes.map(die => `
+  let html = diceTypes.map(die => `
     <div class="die-item" data-die="${die}">
-      <div class="die-visual ${die}">${die.substring(1)}</div>
+      <div class="die-visual" data-die="${die}">${die.substring(1)}</div>
       <div class="die-controls">
         <button class="minus">-</button>
-        <input type="number" class="quantity-input" value="1" min="1" max="99">
+        <input type="number" class="quantity-input" value="0" min="0" max="99">
         <button class="plus">+</button>
       </div>
     </div>
   `).join('');
+
+  // Add the special Roll button in the empty slot
+  html += `
+    <div class="die-item roll-all-item" id="roll-all-btn-item">
+      <div class="die-visual roll-all-visual">ROLL</div>
+      <div class="die-controls">
+        <span class="roll-all-label">Roll All</span>
+      </div>
+    </div>
+  `;
+
+  diceGrid.innerHTML = html;
 }
 
 export function rollDice(expression: string): { success: boolean; resultText: string; total: number } {
@@ -88,7 +148,7 @@ export function rollDice(expression: string): { success: boolean; resultText: st
     let rolls = [];
     let subTotal = 0;
     for (let i = 0; i < count; i++) {
-      const roll = Math.floor(Math.random() * sides) + 1;
+      const roll = Math.floor(mt.random() * sides) + 1;
       rolls.push(roll);
       subTotal += roll;
     }
@@ -109,25 +169,57 @@ export function rollDice(expression: string): { success: boolean; resultText: st
 
 export function handleDieRoll(dieItem: HTMLElement) {
   const dieType = dieItem.dataset.die; // e.g., "d20"
+  if (!dieType) return;
+  
   const quantityInput = dieItem.querySelector('.quantity-input') as HTMLInputElement;
-  const quantity = parseInt(quantityInput.value, 10) || 1;
+  let quantity = parseInt(quantityInput.value, 10) || 0;
 
-  const visual = dieItem.querySelector('.die-visual');
-  visual?.classList.add('rolling');
-  setTimeout(() => visual?.classList.remove('rolling'), 500);
+  // If quantity is 0 but we clicked the die directly, roll 1
+  if (quantity === 0) quantity = 1;
 
-  const command = `${quantity}${dieType}`; // e.g. "2d20"
+  const visual = dieItem.querySelector('.die-visual') as HTMLElement;
+  visual.classList.add('rolling');
+  setTimeout(() => visual.classList.remove('rolling'), 300);
+
+  const command = `${quantity}${dieType}`;
   const { success, resultText, total } = rollDice(command);
 
   if (success) {
     const p = document.createElement('p');
+    // Use innerHTML to preserve bold formatting from rollDice
     p.innerHTML = resultText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     diceResultsLog.prepend(p);
+    
+    // Add a subtle animation to the total
+    const totalSpan = diceTotalValue;
+    totalSpan.style.transform = 'scale(1.2)';
+    setTimeout(() => totalSpan.style.transform = '', 150);
     
     // Update running total
     const currentTotal = parseInt(diceTotalValue.textContent || '0', 10);
     diceTotalValue.textContent = String(currentTotal + total);
   }
+}
+
+export function handleRollAll() {
+  const dieItems = Array.from(diceGrid.querySelectorAll('.die-item[data-die]')) as HTMLElement[];
+  
+  // Visual feedback for the Roll All button itself
+  const rollAllBtn = document.getElementById('roll-all-btn-item');
+  if (rollAllBtn) {
+    const visual = rollAllBtn.querySelector('.die-visual') as HTMLElement;
+    visual.classList.add('rolling');
+    setTimeout(() => visual.classList.remove('rolling'), 300);
+  }
+
+  // Roll each die type ONLY if quantity > 0
+  dieItems.forEach(item => {
+    const quantityInput = item.querySelector('.quantity-input') as HTMLInputElement;
+    const quantity = parseInt(quantityInput.value, 10) || 0;
+    if (quantity > 0) {
+      handleDieRoll(item);
+    }
+  });
 }
 
 export function clearDiceResults() {

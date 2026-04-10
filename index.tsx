@@ -1477,13 +1477,20 @@ function setupEventListeners() {
         const target = e.target as HTMLElement;
         const dieItem = target.closest('.die-item') as HTMLElement;
         if (!dieItem) return;
+
+        // Handle Roll All button
+        if (dieItem.id === 'roll-all-btn-item') {
+            import('./features').then(m => m.handleRollAll());
+            return;
+        }
+
         if (target.closest('.die-visual')) { handleDieRoll(dieItem); }
         const quantityInput = dieItem.querySelector('.quantity-input') as HTMLInputElement;
         let value = parseInt(quantityInput.value, 10);
         if (target.classList.contains('plus')) {
           quantityInput.value = String(Math.min(99, value + 1));
         } else if (target.classList.contains('minus')) {
-          quantityInput.value = String(Math.max(1, value - 1));
+          quantityInput.value = String(Math.max(0, value - 1));
         }
       });
   }
