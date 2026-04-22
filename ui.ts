@@ -687,47 +687,47 @@ export function initGyroscope() {
   }
 }
 
+let isTracking = false;
+
 function startTracking() {
+  if (isTracking) return;
+  isTracking = true;
+
   // Use 'devicemotion' for raw rotation rates (immune to gimbal lock flips)
   window.addEventListener('devicemotion', handleMotion);
   requestAnimationFrame(smoothMotionLoop);
 }
 
+// Gyroscope configuration state
+let gyroConfig = {
+  invertX: false,
+  invertY: true,
+  swapAxes: false, // User confirmed this is now perfect
+  sensitivity: 1.0,
+  vBoost: 2.8 // Vertical boost factor to equalize speed
+};
+
 function handleMotion(event: DeviceMotionEvent) {
   const rotation = event.rotationRate;
   if (!rotation) return;
 
-  // Raw rotation rates (Degrees per second)
-  const alpha = rotation.alpha || 0; // Steering-wheel tilt (Roll Z)
-  const beta = rotation.beta || 0;   // Vertical nod (Pitch X)
-  const gamma = rotation.gamma || 0; // Compass turn (Yaw Y)
+  let xRaw = rotation.beta || 0;   
+  let yRaw = rotation.gamma || 0; 
 
-  // Calibrate sensitivity
-  // Vertical move sensitivity (Higher to feel more responsive)
-  const vSens = 1.2;
-  // Horizontal move sensitivity
-  const hSens = 0.8;
+  // Apply Swap if needed
+  let x = gyroConfig.swapAxes ? yRaw : xRaw;
+  let y = gyroConfig.swapAxes ? xRaw : yRaw;
 
-  // 1. Vertical Logic: 
-  // If phone tilts UP (beta > 0), stars should move UP.
-  // In CSS, background-position Y must decrease to move image up.
-  targetGY -= (beta * vSens);
+  // Apply Inversion
+  const xDir = gyroConfig.invertX ? -1 : 1;
+  const yDir = gyroConfig.invertY ? -1 : 1;
 
-  // 2. Horizontal Logic:
-  // Combine Compass Turn (Gamma) and Steering Wheel Tilt (Alpha)
-  // This ensures the stars follow you whether you turn your body or just tilt your wrist.
-  // Turn Right (Gamma > 0) -> Stars Right (GX +)
-  // Tilt Right (Alpha < 0) -> Stars Right (GX +)
-  const combinedHorizontal = (gamma * hSens) - (alpha * hSens);
-  
-  targetGX += combinedHorizontal;
+  // Final movement calculation
+  const horizMove = x * gyroConfig.sensitivity * xDir;
+  const vertMove = y * gyroConfig.sensitivity * gyroConfig.vBoost * yDir;
 
-  // Use a slightly higher threshold for the vertical axis to prevent the "drift" 
-  // you mentioned when just moving the phone up and down slightly.
-  const noiseThreshold = 0.15;
-  if (Math.abs(beta) < noiseThreshold) {
-    // Optionally stabilize if movement is too small
-  }
+  targetGX += horizMove;
+  targetGY += vertMove;
 }
 
 function smoothMotionLoop() {
