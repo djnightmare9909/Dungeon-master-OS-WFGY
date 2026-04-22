@@ -36,6 +36,7 @@ export function migrateAndValidateSession(session: any): ChatSession {
   if (
     session.creationPhase === 'guided' ||
     session.creationPhase === 'character_creation' ||
+    session.creationPhase === 'character_upload' ||
     session.creationPhase === 'narrator_selection' ||
     session.creationPhase === 'guided_password' ||
     session.creationPhase === 'world_creation' ||

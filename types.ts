@@ -25,6 +25,9 @@ export interface UISettings {
   localAiModel: string;
   systemVersion: '2.0' | '3.0';
   engineVariant: 'pro' | 'flash';
+  providerType: 'gemini' | 'openai' | 'anthropic' | 'custom';
+  customEndpointUrl: string;
+  customHeaderConfig: string;
 }
 
 export interface AbilityScore {
@@ -143,6 +146,7 @@ export interface ChatSession {
   creationPhase?:
     | 'guided'
     | 'character_creation'
+    | 'character_upload'
     | 'narrator_selection'
     | 'guided_password'
     | 'world_creation'

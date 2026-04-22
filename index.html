@@ -438,6 +438,23 @@
                                     <p class="setting-description">The model ID configured in your local server.</p>
                                 </div>
                                 <div class="setting-item">
+                                    <label for="setting-provider-type">Provider Type</label>
+                                    <select id="setting-provider-type">
+                                        <option value="gemini">Google Gemini</option>
+                                        <option value="openai">OpenAI / Compatible</option>
+                                        <option value="anthropic">Anthropic Claude</option>
+                                        <option value="custom">Custom Endpoint</option>
+                                    </select>
+                                </div>
+                                <div class="setting-item full-width">
+                                    <label for="setting-custom-endpoint">Custom Endpoint URL</label>
+                                    <input type="text" id="setting-custom-endpoint" placeholder="e.g., https://api.openai.com/v1">
+                                </div>
+                                <div class="setting-item full-width">
+                                    <label for="setting-custom-headers">Custom Headers (JSON)</label>
+                                    <textarea id="setting-custom-headers" placeholder='e.g., {"Authorization": "Bearer YOUR_KEY"}' rows="2"></textarea>
+                                </div>
+                                <div class="setting-item">
                                     <label for="setting-model">AI Model</label>
                                     <select id="setting-model">
                                         <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>

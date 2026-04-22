@@ -89,6 +89,9 @@ export const rulesetSelect = document.getElementById('setting-ruleset') as HTMLS
 export const apiKeyInput = document.getElementById('setting-api-key') as HTMLInputElement;
 export const localAiUrlInput = document.getElementById('setting-local-ai-url') as HTMLInputElement;
 export const localAiModelInput = document.getElementById('setting-local-ai-model') as HTMLInputElement;
+export const providerTypeSelect = document.getElementById('setting-provider-type') as HTMLSelectElement;
+export const customEndpointInput = document.getElementById('setting-custom-endpoint') as HTMLInputElement;
+export const customHeadersInput = document.getElementById('setting-custom-headers') as HTMLTextAreaElement;
 export const saveApiKeyBtn = document.getElementById('save-api-key-btn') as HTMLButtonElement;
 export const changeUiBtn = document.getElementById('change-ui-btn') as HTMLButtonElement;
 export const themeModal = document.getElementById('theme-modal') as HTMLElement;
@@ -117,11 +120,24 @@ export function closeSidebar() {
 }
 
 export function openModal(modal: HTMLElement) {
-  if (modal) modal.style.display = 'flex';
+  if (!modal) return;
+  const content = modal.querySelector('.modal-content');
+  if (content) {
+    content.classList.remove('closing');
+  }
+  modal.style.display = 'flex';
 }
 
-export function closeModal(modal: HTMLElement) {
-  if (modal) modal.style.display = 'none';
+export async function closeModal(modal: HTMLElement) {
+  if (!modal) return;
+  const content = modal.querySelector('.modal-content');
+  if (content) {
+    content.classList.add('closing');
+    // Wait for the animation to complete (duration matches CSS)
+    await new Promise(resolve => setTimeout(resolve, 400));
+    content.classList.remove('closing');
+  }
+  modal.style.display = 'none';
 }
 
 export function applyUISettings() {
@@ -170,6 +186,15 @@ export function applyUISettings() {
   }
   if (localAiModelInput) {
       localAiModelInput.value = uiSettings.localAiModel || '';
+  }
+  if (providerTypeSelect) {
+      providerTypeSelect.value = uiSettings.providerType || 'gemini';
+  }
+  if (customEndpointInput) {
+      customEndpointInput.value = uiSettings.customEndpointUrl || '';
+  }
+  if (customHeadersInput) {
+      customHeadersInput.value = uiSettings.customHeaderConfig || '';
   }
 }
 

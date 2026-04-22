@@ -44,6 +44,9 @@ let uiSettings: UISettings = {
   localAiModel: '',
   systemVersion: '2.0',
   engineVariant: 'pro',
+  providerType: 'gemini',
+  customEndpointUrl: '',
+  customHeaderConfig: '',
 };
 
 // =================================================================================

@@ -92,6 +92,9 @@ import {
   apiKeyInput,
   localAiUrlInput,
   localAiModelInput,
+  providerTypeSelect,
+  customEndpointInput,
+  customHeadersInput,
   saveApiKeyBtn,
   changeUiBtn,
   themeModal,
@@ -475,8 +478,8 @@ function openRenameModal(id: string) {
 }
 
 /** Closes the rename chat modal. */
-function closeRenameModal() {
-  closeModal(renameModal);
+async function closeRenameModal() {
+  await closeModal(renameModal);
   chatIdToRename = null;
 }
 
@@ -491,8 +494,8 @@ function openDeleteConfirmModal(id: string) {
 }
 
 /** Closes the delete confirmation modal. */
-function closeDeleteConfirmModal() {
-  closeModal(deleteConfirmModal);
+async function closeDeleteConfirmModal() {
+  await closeModal(deleteConfirmModal);
   chatIdToDelete = null;
 }
 
@@ -641,7 +644,7 @@ async function handleFormSubmit(e: Event) {
         return;
       }
 
-      if (currentSession.creationPhase === 'guided') {
+      if (currentSession.creationPhase === 'guided' || currentSession.creationPhase === 'character_creation' || currentSession.creationPhase === 'character_upload') {
         // Just fall through to send the message to the AI
       }
 
@@ -666,8 +669,6 @@ async function handleFormSubmit(e: Event) {
           const tone = currentSession.settings?.tone || 'heroic';
           const narration = currentSession.settings?.narration || 'descriptive';
           messageToSend = `I've chosen the ${personaName} with a ${tone} tone and ${narration} narration. Now, let's create the world.`;
-        } else if (currentSession.creationPhase === 'character_creation' && currentSession.messages.filter(m => m.sender === 'user').length <= 2) {
-          messageToSend = "Let's create my character.";
         }
 
         const result = await retryOperation(() => geminiChat.sendMessageStream({ message: messageToSend })) as any;
@@ -687,6 +688,26 @@ async function handleFormSubmit(e: Event) {
           updateLogbookData('sheet');
         }
         
+        if (responseText.includes('[START_GUIDED_SETUP]')) {
+          currentSession.creationPhase = 'character_creation';
+          const setupMessageText = responseText.replace('[START_GUIDED_SETUP]', '').trim();
+          modelMessageEl.innerHTML = setupMessageText;
+          const setupMessage: Message = { sender: 'model', text: setupMessageText };
+          currentSession.messages.push(setupMessage);
+          saveChatHistoryToDB();
+          return;
+        }
+
+        if (responseText.includes('[START_UPLOAD_SETUP]')) {
+          currentSession.creationPhase = 'character_upload';
+          const setupMessageText = responseText.replace('[START_UPLOAD_SETUP]', '').trim();
+          modelMessageEl.innerHTML = setupMessageText;
+          const setupMessage: Message = { sender: 'model', text: setupMessageText };
+          currentSession.messages.push(setupMessage);
+          saveChatHistoryToDB();
+          return;
+        }
+
         if (responseText.includes('[CHARACTER_CREATION_COMPLETE]')) {
             currentSession.creationPhase = 'narrator_selection';
             const setupMessageText = responseText.replace('[CHARACTER_CREATION_COMPLETE]', '').trim();
@@ -1237,23 +1258,23 @@ function setupEventListeners() {
   }
 
   if (helpBtn) helpBtn.addEventListener('click', () => openModal(helpModal));
-  if (closeHelpBtn) closeHelpBtn.addEventListener('click', () => closeModal(helpModal));
+  if (closeHelpBtn) closeHelpBtn.addEventListener('click', async () => await closeModal(helpModal));
   if (dndHelpBtn) dndHelpBtn.addEventListener('click', () => openModal(dndHelpModal));
-  if (closeDndHelpBtn) closeDndHelpBtn.addEventListener('click', () => closeModal(dndHelpModal));
+  if (closeDndHelpBtn) closeDndHelpBtn.addEventListener('click', async () => await closeModal(dndHelpModal));
   if (logbookBtn) {
       logbookBtn.addEventListener('click', () => {
           refreshLogbookTree();
           openModal(logbookModal);
       });
   }
-  if (closeLogbookBtn) closeLogbookBtn.addEventListener('click', () => closeModal(logbookModal));
+  if (closeLogbookBtn) closeLogbookBtn.addEventListener('click', async () => await closeModal(logbookModal));
   if (diceRollerBtn) diceRollerBtn.addEventListener('click', () => openModal(diceModal));
-  if (closeDiceBtn) closeDiceBtn.addEventListener('click', () => closeModal(diceModal));
+  if (closeDiceBtn) closeDiceBtn.addEventListener('click', async () => await closeModal(diceModal));
   if (closeRenameBtn) closeRenameBtn.addEventListener('click', closeRenameModal);
   if (closeDeleteConfirmBtn) closeDeleteConfirmBtn.addEventListener('click', closeDeleteConfirmModal);
   if (cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', closeDeleteConfirmModal);
   if (confirmDeleteBtn) confirmDeleteBtn.addEventListener('click', deleteChat);
-  if (closeWelcomeBtn) closeWelcomeBtn.addEventListener('click', () => closeModal(welcomeModal));
+  if (closeWelcomeBtn) closeWelcomeBtn.addEventListener('click', async () => await closeModal(welcomeModal));
   if (combatTrackerHeader) {
       combatTrackerHeader.addEventListener('click', () => {
         combatTracker.classList.toggle('expanded');
@@ -1442,10 +1463,16 @@ function setupEventListeners() {
   if (saveApiKeyBtn) {
       saveApiKeyBtn.addEventListener('click', () => {
           if (apiKeyInput && localAiUrlInput && localAiModelInput) {
-              getUISettings().apiKey = apiKeyInput.value.trim();
-              getUISettings().localAiUrl = localAiUrlInput.value.trim();
-              getUISettings().localAiModel = localAiModelInput.value.trim();
-              dbSet('dm-os-ui-settings', getUISettings());
+              const settings = getUISettings();
+              settings.apiKey = apiKeyInput.value.trim();
+              settings.localAiUrl = localAiUrlInput.value.trim();
+              settings.localAiModel = localAiModelInput.value.trim();
+              
+              if (providerTypeSelect) settings.providerType = providerTypeSelect.value as any;
+              if (customEndpointInput) settings.customEndpointUrl = customEndpointInput.value.trim();
+              if (customHeadersInput) settings.customHeaderConfig = customHeadersInput.value.trim();
+
+              dbSet('dm-os-ui-settings', settings);
               resetAI(); 
               
               const originalText = saveApiKeyBtn.textContent;
@@ -1460,13 +1487,13 @@ function setupEventListeners() {
   }
 
   if (changeUiBtn) changeUiBtn.addEventListener('click', () => openModal(themeModal));
-  if (closeThemeBtn) closeThemeBtn.addEventListener('click', () => closeModal(themeModal));
+  if (closeThemeBtn) closeThemeBtn.addEventListener('click', async () => await closeModal(themeModal));
   if (themeGrid) {
-      themeGrid.addEventListener('click', (e) => {
+      themeGrid.addEventListener('click', async (e) => {
         const card = (e.target as HTMLElement).closest<HTMLElement>('.theme-card');
         if (card?.dataset.theme) {
           applyTheme(card.dataset.theme);
-          closeModal(themeModal);
+          await closeModal(themeModal);
         }
       });
   }

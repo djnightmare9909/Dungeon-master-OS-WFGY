@@ -51,6 +51,41 @@ function getApiKey(): string {
   return envKey;
 }
 
+function getHeaders() {
+  const settings = getUISettings();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  
+  if (settings.customHeaderConfig) {
+    try {
+      const customHeaders = JSON.parse(settings.customHeaderConfig);
+      Object.assign(headers, customHeaders);
+    } catch (e) {
+      console.error("DM OS: Failed to parse custom headers JSON", e);
+    }
+  }
+  
+  return headers;
+}
+
+function getProviderUrl(defaultPath: string) {
+  const settings = getUISettings();
+  if (settings.providerType === 'custom' && settings.customEndpointUrl) {
+    return `${settings.customEndpointUrl.replace(/\/+$/, '')}${defaultPath}`;
+  }
+  
+  if (settings.providerType === 'openai' || settings.providerType === 'gemini') {
+      const baseUrl = (settings.localAiUrl || 'http://localhost:1234/v1').replace(/\/+$/, '');
+      return `${baseUrl}${defaultPath}`;
+  }
+
+  if (settings.providerType === 'anthropic') {
+      const baseUrl = (settings.customEndpointUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '');
+      return `${baseUrl}/messages`;
+  }
+
+  return (settings.localAiUrl || 'http://localhost:1234/v1').replace(/\/+$/, '') + defaultPath;
+}
+
 let _ai: GoogleGenAI | null = null;
 
 // Allows the UI to reset the client when the API key changes in settings.
@@ -63,7 +98,7 @@ export function resetAI() {
 export const ai = new Proxy({}, {
   get(target, prop, receiver) {
     const settings = getUISettings();
-    const isLocal = settings.localAiUrl && settings.localAiUrl.trim().length > 0;
+    const isLocal = (settings.localAiUrl && settings.localAiUrl.trim().length > 0) || settings.providerType !== 'gemini';
 
     if (prop === 'models') {
       return {
@@ -74,8 +109,8 @@ export const ai = new Proxy({}, {
         },
         embedContent: async (params: any) => {
           if (isLocal) {
-            console.log("DM OS: [Local AI] Mocking embedding call.");
-            return { embedding: { values: new Array(768).fill(0) } };
+            const values = await generateEmbedding(params.contents?.parts?.[0]?.text || params.content?.parts?.[0]?.text || '');
+            return { embedding: { values } };
           }
           if (!_ai) _ai = new GoogleGenAI({ apiKey: getApiKey() });
           return _ai.models.embedContent(params);
@@ -87,7 +122,7 @@ export const ai = new Proxy({}, {
       return {
         create: (config: any) => {
           if (isLocal) {
-            console.log("DM OS: [Local AI] Creating Local Chat Session.");
+            console.log("DM OS: [Provider AI] Creating Provider Chat Session.");
             return new LocalChat(config);
           }
           if (!_ai) _ai = new GoogleGenAI({ apiKey: getApiKey() });
@@ -121,9 +156,8 @@ class LocalChat {
 
   async sendMessage(params: { message: string }): Promise<GenerateContentResponse> {
     const settings = getUISettings();
-    const baseUrl = settings.localAiUrl.replace(/\/+$/, '');
-    const url = `${baseUrl}/chat/completions`;
-    const model = settings.localAiModel || 'local-model';
+    const url = getProviderUrl('/chat/completions');
+    const model = settings.providerType === 'gemini' ? settings.localAiModel : (settings.activeModel || 'gpt-4o');
 
     const messages: any[] = [];
     if (this.systemInstruction) {
@@ -140,13 +174,11 @@ class LocalChat {
     
     messages.push({ role: 'user', content: params.message });
 
-    console.log(`DM OS: [Local AI Chat] Sending request to ${url} (Model: ${model})`);
-    console.log(`DM OS: [Local AI Chat] System Instruction: ${this.systemInstruction ? 'Present' : 'Missing'}`);
-    console.log(`DM OS: [Local AI Chat] Message Count: ${messages.length}`);
+    console.log(`DM OS: [Provider AI Chat] Sending request to ${url} (Model: ${model})`);
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify({
         model: model,
         messages: messages,
@@ -157,11 +189,11 @@ class LocalChat {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Local AI Error (${response.status}): ${errorText}`);
+      throw new Error(`AI Provider Error (${response.status}): ${errorText}`);
     }
 
     const data = await response.json();
-    const text = data.choices[0].message.content;
+    const text = data.choices ? data.choices[0].message.content : (data.content ? data.content[0].text : JSON.stringify(data));
 
     // Update internal history to match Gemini's stateful chat
     this.history.push({ role: 'user', parts: [{ text: params.message }] });
@@ -191,9 +223,8 @@ class LocalChat {
  */
 async function generateContentLocal(params: any): Promise<GenerateContentResponse> {
   const settings = getUISettings();
-  const baseUrl = settings.localAiUrl.replace(/\/+$/, '');
-  const url = `${baseUrl}/chat/completions`;
-  const model = settings.localAiModel || 'local-model';
+  const url = getProviderUrl('/chat/completions');
+  const model = settings.providerType === 'gemini' ? settings.localAiModel : (settings.activeModel || 'gpt-4o');
 
   // Convert Gemini params to OpenAI format
   let prompt = '';
@@ -213,15 +244,11 @@ async function generateContentLocal(params: any): Promise<GenerateContentRespons
   }
   messages.push({ role: 'user', content: prompt });
 
-  console.log(`DM OS: [Local AI Content] Calling ${url} with model ${model}`);
-  console.log(`DM OS: [Local AI Content] System Instruction: ${systemInstruction ? 'Present' : 'Missing'}`);
-  console.log(`DM OS: [Local AI Content] Message Count: ${messages.length}`);
+  console.log(`DM OS: [Provider AI Content] Calling ${url} with model ${model}`);
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     body: JSON.stringify({
       model: model,
       messages: messages,
@@ -232,11 +259,11 @@ async function generateContentLocal(params: any): Promise<GenerateContentRespons
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Local AI Error (${response.status}): ${errorText}`);
+    throw new Error(`AI Provider Error (${response.status}): ${errorText}`);
   }
 
   const data = await response.json();
-  const text = data.choices[0].message.content;
+  const text = data.choices ? data.choices[0].message.content : (data.content ? data.content[0].text : JSON.stringify(data));
 
   // Mock a Gemini response object
   return {
@@ -266,36 +293,54 @@ export function getNewGameSetupInstruction(version: '2.0' | '3.0' = '2.0'): stri
 
   return `You are the Setup AI for DM OS (Dungeon Master Operating System) v${version}. Your goal is to guide the user through the initial configuration of their new ${systemName} adventure.
 
-PHASE 1: INITIAL CHOICE
+PHASE 1: CHARACTER CREATION
 Greet the user warmly and ask them to choose between:
 1. [Quick Start]: You will generate a party of pre-made characters for them to choose from.
 2. [Guided Setup]: You will help them create a custom character from scratch.
+3. [Upload]: You have an existing character sheet (JSON or text) you'd like to use.
 
-PHASE 2: CREATION MODE
 If they choose Quick Start:
-Output ONLY this tag: [GENERATE_QUICK_START_CHARACTERS]
+Output this tag: [GENERATE_QUICK_START_CHARACTERS]
+On the next line, tell them "Excellent. Here are some adventurers ready for action:"
 
 If they choose Guided Setup:
-1. Ask for their character's Name and other relevant details for ${systemName}.
-2. Guide them through the process. Be helpful and creative.
-3. ONCE the character details are established, ASK the user if they would like you to generate their character sheet for the Logbook.
-4. If they say yes, tell them "Generating character sheet..." and then output ONLY this tag: [CHARACTER_CREATION_COMPLETE]
-5. If they say no or want to skip, output ONLY this tag: [CHARACTER_CREATION_COMPLETE]
+Tell them "Starting guided character creation..." and output Step 1: Concept & Name. Also output this tag: [START_GUIDED_SETUP]
 
-PHASE 3: NARRATOR & WORLD
+If they choose Upload:
+Tell them "Excellent. Please provide your character details (you can paste the text or describe your character)." and output this tag: [START_UPLOAD_SETUP]
+
+When you are in the process of Guided Setup:
+1. You MUST follow the official ${systemName} character creation steps.
+2. Step 1: Establish a Concept & Name.
+3. Step 2: Choose a Race/Heritage.
+4. Step 3: Choose a Class & Role.
+5. Step 4: Determine Ability Scores (Standard Array, Point Buy, or Roll).
+6. Step 5: Choose a Background & Alignment.
+    - Ask the user for their preference at each step. Do NOT skip steps or combine them all into one message. Guide them patiently.
+7. ONCE ALL details are established, ASK the user if they would like you to generate their character sheet for the Logbook.
+8. If they say yes, tell them "Generating character sheet..." and then output this tag: [CHARACTER_CREATION_COMPLETE]
+9. If they say no or want to skip, output this tag: [CHARACTER_CREATION_COMPLETE]
+
+When you are in the process of Upload Setup:
+1. Acknowledge the data provided.
+2. If the data is sufficient to build a character sheet, tell them "Character data received. Generating character sheet..." and output ONLY this tag: [CHARACTER_CREATION_COMPLETE]
+3. If the data is incomplete or unclear, ask for clarifying details or the missing fields before completing.
+
+PHASE 2: NARRATOR & WORLD
 After character creation is complete, the UI will handle narrator selection (Persona, Tone, Style) and OOC password setup.
 You will then receive a message like: "I've chosen the [Persona] with a [Tone] tone and [Style] narration. Now, let's create the world."
 
 When you receive this request:
-1. Generate a compelling starting world/location based on the chosen persona and tone.
-2. Output the world description.
-3. At the VERY END of your response, output this tag: [SETUP_COMPLETE]
-4. On the next line after the tag, output: Title: [Suggested Adventure Title]
+1. Introduce yourself as the chosen DM Persona and acknowledge the user's choices.
+2. ASK the user what kind of world setting they would like. Provide 3 diverse options based on the chosen tone (e.g., Gritty Low Fantasy, Epic High Fantasy, Dark Horror) or ask for their own custom idea.
+3. Once the setting is established through 1-2 messages of dialogue, describe the starting location in detail.
+4. ONLY after you have described the world and the user has acknowledged it, output this tag at the VERY END of your final setup response: [SETUP_COMPLETE]
+5. On the next line after the tag, output: Title: [Suggested Adventure Title]
 
 IMPORTANT:
 - Do not mention the tags to the user.
-- Stay in character as a helpful system assistant.
-- Ensure [SETUP_COMPLETE] is the LAST thing you output before the Title.
+- Stay in character as a helpful system assistant during Phase 1, then transition to your DM Persona in Phase 2.
+- Ensure [SETUP_COMPLETE] is the LAST thing you output in the entire setup process.
 - If the user provides an OOC password during setup, ignore it for now as the UI will handle it at the end.`;
 }
 
@@ -382,8 +427,32 @@ export function createNewChatInstance(history: { role: 'user' | 'model'; parts: 
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
     const settings = getUISettings();
-    if (settings.localAiUrl && settings.localAiUrl.trim().length > 0) {
-        console.log("DM OS: [Local AI] Mocking embedding for text:", text.substring(0, 50) + "...");
+    const isLocal = (settings.localAiUrl && settings.localAiUrl.trim().length > 0) || settings.providerType !== 'gemini';
+
+    if (isLocal) {
+        const url = getProviderUrl('/embeddings');
+        const model = settings.providerType === 'gemini' ? settings.localAiModel : (settings.activeModel || 'text-embedding-3-small');
+
+        console.log(`DM OS: [Provider AI Embedding] Calling ${url} with model ${model}`);
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({
+                    model: model,
+                    input: text,
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return data.data?.[0]?.embedding || data.embedding || new Array(768).fill(0);
+            }
+        } catch (e) {
+            console.warn("DM OS: Local embedding failed, falling back to mock.", e);
+        }
+
         return new Array(768).fill(0);
     }
 

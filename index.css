@@ -34,6 +34,21 @@ body[data-theme="high-fantasy-dark"] {
   --accent-hover-color: #d8c670;
 }
 
+/* --- High Fantasy OLED --- */
+body[data-theme="high-fantasy-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #e3e3e3;
+  --text-secondary-color: #9aa0a6;
+  --primary-font: "Merriweather", serif;
+  --title-font: "Uncial Antiqua", cursive;
+  --user-message-bg: #1a2a3a;
+  --model-message-bg: #050505;
+  --border-color: #3c4043;
+  --accent-color: #c5b358;
+  --accent-hover-color: #d8c670;
+}
+
 /* --- High Fantasy Light (New Variant) --- */
 body[data-theme="high-fantasy-light"] {
   --background-color: #fdf6e3; /* Parchment */
@@ -69,9 +84,26 @@ body[data-theme="dark-fantasy-crimson"] {
   --accent-hover-color: #d32f2f;
   --danger-color: #ff5252;
 }
+/* --- Dark Fantasy Crimson OLED --- */
+body[data-theme="dark-fantasy-crimson-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #d1d1d1;
+  --text-secondary-color: #888;
+  --primary-font: "Merriweather", serif;
+  --title-font: "Uncial Antiqua", cursive;
+  --user-message-bg: #330a12;
+  --model-message-bg: #0a0a0a;
+  --border-color: #666;
+  --accent-color: #b71c1c;
+  --accent-hover-color: #d32f2f;
+  --danger-color: #ff5252;
+}
 /* Ornate border styles for Crimson theme */
 body[data-theme="dark-fantasy-crimson"] .modal-content,
-body[data-theme="dark-fantasy-crimson"] .message.model {
+body[data-theme="dark-fantasy-crimson"] .message.model,
+body[data-theme="dark-fantasy-crimson-oled"] .modal-content,
+body[data-theme="dark-fantasy-crimson-oled"] .message.model {
   border: 1px solid var(--border-color);
   position: relative;
   background-clip: padding-box; /* Prevents background from overlapping the pseudo-element borders */
@@ -79,7 +111,11 @@ body[data-theme="dark-fantasy-crimson"] .message.model {
 body[data-theme="dark-fantasy-crimson"] .modal-content::before,
 body[data-theme="dark-fantasy-crimson"] .modal-content::after,
 body[data-theme="dark-fantasy-crimson"] .message.model::before,
-body[data-theme="dark-fantasy-crimson"] .message.model::after {
+body[data-theme="dark-fantasy-crimson"] .message.model::after,
+body[data-theme="dark-fantasy-crimson-oled"] .modal-content::before,
+body[data-theme="dark-fantasy-crimson-oled"] .modal-content::after,
+body[data-theme="dark-fantasy-crimson-oled"] .message.model::before,
+body[data-theme="dark-fantasy-crimson-oled"] .message.model::after {
   content: '';
   position: absolute;
   width: 20px;
@@ -91,18 +127,26 @@ body[data-theme="dark-fantasy-crimson"] .message.model::after {
 body[data-theme="dark-fantasy-crimson"] .modal-content:hover::before,
 body[data-theme="dark-fantasy-crimson"] .modal-content:hover::after,
 body[data-theme="dark-fantasy-crimson"] .message.model:hover::before,
-body[data-theme="dark-fantasy-crimson"] .message.model:hover::after {
+body[data-theme="dark-fantasy-crimson"] .message.model:hover::after,
+body[data-theme="dark-fantasy-crimson-oled"] .modal-content:hover::before,
+body[data-theme="dark-fantasy-crimson-oled"] .modal-content:hover::after,
+body[data-theme="dark-fantasy-crimson-oled"] .message.model:hover::before,
+body[data-theme="dark-fantasy-crimson-oled"] .message.model:hover::after {
   border-color: var(--accent-color);
 }
 /* Top-left corner */
 body[data-theme="dark-fantasy-crimson"] .modal-content::before,
-body[data-theme="dark-fantasy-crimson"] .message.model::before {
+body[data-theme="dark-fantasy-crimson"] .message.model::before,
+body[data-theme="dark-fantasy-crimson-oled"] .modal-content::before,
+body[data-theme="dark-fantasy-crimson-oled"] .message.model::before {
   top: -6px; left: -6px;
   border-width: 2px 0 0 2px;
 }
 /* Bottom-right corner */
 body[data-theme="dark-fantasy-crimson"] .modal-content::after,
-body[data-theme="dark-fantasy-crimson"] .message.model::after {
+body[data-theme="dark-fantasy-crimson"] .message.model::after,
+body[data-theme="dark-fantasy-crimson-oled"] .modal-content::after,
+body[data-theme="dark-fantasy-crimson-oled"] .message.model::after {
   bottom: -6px; right: -6px;
   border-width: 0 2px 2px 0;
 }
@@ -121,18 +165,40 @@ body[data-theme="classic-rpg-parchment"] {
   --accent-color: #e5c100;
   --accent-hover-color: #f8d430;
 }
+/* --- Classic RPG Parchment OLED --- */
+body[data-theme="classic-rpg-parchment-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #d5c8b8;
+  --text-secondary-color: #a39586;
+  --primary-font: "Merriweather", serif;
+  --title-font: "Uncial Antiqua", cursive;
+  --user-message-bg: #3b2e11;
+  --model-message-bg: #050505;
+  --border-color: #8c6742;
+  --accent-color: #e5c100;
+  --accent-hover-color: #f8d430;
+}
 /* Skeuomorphic styles for RPG theme */
 body[data-theme="classic-rpg-parchment"] {
-   background-image: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%233b2e21" fill-opacity="0.4"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+   background-image: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%233b2e21" fill-opacity="0.4"%3E%3Cpath d="M36 34v-4h-2v4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+}
+body[data-theme="classic-rpg-parchment-oled"] {
+   background-image: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%231a1510" fill-opacity="0.4"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
 }
 body[data-theme="classic-rpg-parchment"] .modal-content,
 body[data-theme="classic-rpg-parchment"] .message,
 body[data-theme="classic-rpg-parchment"] #sidebar,
-body[data-theme="classic-rpg-parchment"] #chat-form {
+body[data-theme="classic-rpg-parchment"] #chat-form,
+body[data-theme="classic-rpg-parchment-oled"] .modal-content,
+body[data-theme="classic-rpg-parchment-oled"] .message,
+body[data-theme="classic-rpg-parchment-oled"] #sidebar,
+body[data-theme="classic-rpg-parchment-oled"] #chat-form {
   border: 2px solid var(--border-color);
   box-shadow: inset 0 0 10px #00000080, 2px 2px 5px #00000050;
 }
-body[data-theme="classic-rpg-parchment"] button {
+body[data-theme="classic-rpg-parchment"] button,
+body[data-theme="classic-rpg-parchment-oled"] button {
   box-shadow: inset 0px 1px 0px 0px #ffffff50, 0px 1px 3px 0px #000000a0;
 }
 
@@ -151,8 +217,24 @@ body[data-theme="cyberpunk-hud-advanced"] {
   --accent-hover-color: #8affff;
   --danger-color: #ff0055;
 }
+/* --- Cyberpunk HUD OLED --- */
+body[data-theme="cyberpunk-hud-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #00f0ff;
+  --text-secondary-color: #a0a0a0;
+  --primary-font: 'Fira Code', monospace;
+  --title-font: 'Orbitron', sans-serif;
+  --user-message-bg: rgba(42, 0, 79, 0.3);
+  --model-message-bg: rgba(10, 10, 10, 0.5);
+  --border-color: #c72cff;
+  --accent-color: #00f0ff;
+  --accent-hover-color: #8affff;
+  --danger-color: #ff0055;
+}
 /* HUD styles for Cyberpunk theme */
-body[data-theme="cyberpunk-hud-advanced"] {
+body[data-theme="cyberpunk-hud-advanced"],
+body[data-theme="cyberpunk-hud-oled"] {
   background-image:
     linear-gradient(rgba(0, 240, 255, 0.1) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 240, 255, 0.1) 1px, transparent 1px);
@@ -161,21 +243,35 @@ body[data-theme="cyberpunk-hud-advanced"] {
 body[data-theme="cyberpunk-hud-advanced"] h1,
 body[data-theme="cyberpunk-hud-advanced"] h2,
 body[data-theme="cyberpunk-hud-advanced"] h3,
-body[data-theme="cyberpunk-hud-advanced"] .message {
+body[data-theme="cyberpunk-hud-advanced"] .message,
+body[data-theme="cyberpunk-hud-oled"] h1,
+body[data-theme="cyberpunk-hud-oled"] h2,
+body[data-theme="cyberpunk-hud-oled"] h3,
+body[data-theme="cyberpunk-hud-oled"] .message {
   text-shadow: 0 0 2px var(--accent-color), 0 0 5px var(--accent-color);
 }
 body[data-theme="cyberpunk-hud-advanced"] .modal-content,
-body[data-theme="cyberpunk-hud-advanced"] .message.model {
+body[data-theme="cyberpunk-hud-advanced"] .message.model,
+body[data-theme="cyberpunk-hud-oled"] .modal-content,
+body[data-theme="cyberpunk-hud-oled"] .message.model {
   border: 1px solid #c72cff50;
   position: relative;
   background: radial-gradient(circle, rgba(29, 17, 53, 0.8) 0%, rgba(13, 2, 33, 0.8) 100%);
   backdrop-filter: blur(4px);
 }
+body[data-theme="cyberpunk-hud-oled"] .modal-content,
+body[data-theme="cyberpunk-hud-oled"] .message.model {
+  background: radial-gradient(circle, rgba(15, 10, 25, 0.9) 0%, rgba(0, 0, 0, 0.9) 100%);
+}
 /* Corner brackets for HUD */
 body[data-theme="cyberpunk-hud-advanced"] .modal-content::before,
 body[data-theme="cyberpunk-hud-advanced"] .modal-content::after,
 body[data-theme="cyberpunk-hud-advanced"] .message.model::before,
-body[data-theme="cyberpunk-hud-advanced"] .message.model::after {
+body[data-theme="cyberpunk-hud-advanced"] .message.model::after,
+body[data-theme="cyberpunk-hud-oled"] .modal-content::before,
+body[data-theme="cyberpunk-hud-oled"] .modal-content::after,
+body[data-theme="cyberpunk-hud-oled"] .message.model::before,
+body[data-theme="cyberpunk-hud-oled"] .message.model::after {
   content: '';
   position: absolute;
   width: 15px;
@@ -184,12 +280,16 @@ body[data-theme="cyberpunk-hud-advanced"] .message.model::after {
   border-style: solid;
 }
 body[data-theme="cyberpunk-hud-advanced"] .modal-content::before,
-body[data-theme="cyberpunk-hud-advanced"] .message.model::before {
+body[data-theme="cyberpunk-hud-advanced"] .message.model::before,
+body[data-theme="cyberpunk-hud-oled"] .modal-content::before,
+body[data-theme="cyberpunk-hud-oled"] .message.model::before {
   top: 0; left: 0;
   border-width: 2px 0 0 2px;
 }
 body[data-theme="cyberpunk-hud-advanced"] .modal-content::after,
-body[data-theme="cyberpunk-hud-advanced"] .message.model::after {
+body[data-theme="cyberpunk-hud-advanced"] .message.model::after,
+body[data-theme="cyberpunk-hud-oled"] .modal-content::after,
+body[data-theme="cyberpunk-hud-oled"] .message.model::after {
   bottom: 0; right: 0;
   border-width: 0 2px 2px 0;
 }
@@ -199,9 +299,10 @@ body[data-theme="cyberpunk-hud-advanced"] .message.model::after {
   40% { transform: scale(1, 0.005); opacity: 1; }
   100% { transform: scale(1, 1); }
 }
-body[data-theme="cyberpunk-hud-advanced"] .modal-content {
-  transform-origin: center;
-  animation: stretch-and-form 0.4s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards;
+@keyframes shrink-and-hide {
+  0% { transform: scale(1, 1); opacity: 1; }
+  60% { transform: scale(1, 0.005); opacity: 1; }
+  100% { transform: scale(0, 0.005); opacity: 0; }
 }
 
 /* --- Cyberpunk Bladerunner (New Variant) --- */
@@ -219,16 +320,36 @@ body[data-theme="cyberpunk-bladerunner"] {
   --accent-hover-color: #ffb84d;
   --danger-color: #f94144;
 }
-body[data-theme="cyberpunk-bladerunner"] {
-  background-color: #040a18;
+/* --- Cyberpunk Bladerunner OLED --- */
+body[data-theme="cyberpunk-bladerunner-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #90b4ce;
+  --text-secondary-color: #5e6b7e;
+  --primary-font: 'Fira Code', monospace;
+  --title-font: 'Orbitron', sans-serif;
+  --user-message-bg: rgba(61, 89, 171, 0.2);
+  --model-message-bg: rgba(10, 10, 10, 0.5);
+  --border-color: #3d5aab;
+  --accent-color: #ff9900;
+  --accent-hover-color: #ffb84d;
+  --danger-color: #f94144;
+}
+body[data-theme="cyberpunk-bladerunner"],
+body[data-theme="cyberpunk-bladerunner-oled"] {
+  background-color: var(--background-color);
   background-image: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.6) 100%);
 }
 body[data-theme="cyberpunk-bladerunner"] h1,
 body[data-theme="cyberpunk-bladerunner"] h2,
-body[data-theme="cyberpunk-bladerunner"] h3 {
+body[data-theme="cyberpunk-bladerunner"] h3,
+body[data-theme="cyberpunk-bladerunner-oled"] h1,
+body[data-theme="cyberpunk-bladerunner-oled"] h2,
+body[data-theme="cyberpunk-bladerunner-oled"] h3 {
   text-shadow: 0 0 4px var(--accent-color), 0 0 8px #ff5500;
 }
-body[data-theme="cyberpunk-bladerunner"] .message {
+body[data-theme="cyberpunk-bladerunner"] .message,
+body[data-theme="cyberpunk-bladerunner-oled"] .message {
   border-left: 3px solid var(--accent-color);
 }
 
@@ -367,13 +488,31 @@ body[data-theme="hacker-terminal"] {
   --accent-hover-color: #66ff66;
   --danger-color: #ff3333;
 }
-body[data-theme="hacker-terminal"] {
+/* --- Hacker Terminal OLED --- */
+body[data-theme="hacker-terminal-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #00ff00;
+  --text-secondary-color: #008000;
+  --primary-font: 'Fira Code', monospace;
+  --title-font: 'Fira Code', monospace;
+  --user-message-bg: #001a00;
+  --model-message-bg: #050505;
+  --border-color: #004d00;
+  --accent-color: #00ff00;
+  --accent-hover-color: #66ff66;
+  --danger-color: #ff3333;
+}
+body[data-theme="hacker-terminal"],
+body[data-theme="hacker-terminal-oled"] {
     background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 0, 0.1) 2px, rgba(0, 255, 0, 0.1) 3px);
 }
-body[data-theme="hacker-terminal"] * {
+body[data-theme="hacker-terminal"] *,
+body[data-theme="hacker-terminal-oled"] * {
   border-radius: 0 !important;
 }
-body[data-theme="hacker-terminal"] h1, body[data-theme="hacker-terminal"] h2, body[data-theme="hacker-terminal"] h3 {
+body[data-theme="hacker-terminal"] h1, body[data-theme="hacker-terminal"] h2, body[data-theme="hacker-terminal"] h3,
+body[data-theme="hacker-terminal-oled"] h1, body[data-theme="hacker-terminal-oled"] h2, body[data-theme="hacker-terminal-oled"] h3 {
     text-shadow: 0 0 5px var(--accent-color);
 }
 
@@ -392,21 +531,43 @@ body[data-theme="hacker-terminal-glitch"] {
   --accent-hover-color: #66ff66;
   --danger-color: #ff3333;
 }
-body[data-theme="hacker-terminal-glitch"] * {
+/* --- Hacker Terminal Glitch OLED --- */
+body[data-theme="hacker-terminal-glitch-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #00ff00;
+  --text-secondary-color: #008000;
+  --primary-font: 'Fira Code', monospace;
+  --title-font: 'Fira Code', monospace;
+  --user-message-bg: #001a00;
+  --model-message-bg: #050505;
+  --border-color: #004d00;
+  --accent-color: #00ff00;
+  --accent-hover-color: #66ff66;
+  --danger-color: #ff3333;
+}
+body[data-theme="hacker-terminal-glitch"] *,
+body[data-theme="hacker-terminal-glitch-oled"] * {
   border-radius: 0 !important;
 }
-body[data-theme="hacker-terminal-glitch"] {
+body[data-theme="hacker-terminal-glitch"],
+body[data-theme="hacker-terminal-glitch-oled"] {
   animation: glitch-flicker 0.1s infinite;
 }
-body[data-theme="hacker-terminal-glitch"] header h1 {
+body[data-theme="hacker-terminal-glitch"] header h1,
+body[data-theme="hacker-terminal-glitch-oled"] header h1 {
   animation: glitch-text 3s infinite steps(1);
 }
-body[data-theme="hacker-terminal-glitch"] .message {
+body[data-theme="hacker-terminal-glitch"] .message,
+body[data-theme="hacker-terminal-glitch-oled"] .message {
   border: 1px dashed var(--border-color);
 }
 body[data-theme="hacker-terminal-glitch"] h1, 
 body[data-theme="hacker-terminal-glitch"] h2, 
-body[data-theme="hacker-terminal-glitch"] h3 {
+body[data-theme="hacker-terminal-glitch"] h3,
+body[data-theme="hacker-terminal-glitch-oled"] h1, 
+body[data-theme="hacker-terminal-glitch-oled"] h2, 
+body[data-theme="hacker-terminal-glitch-oled"] h3 {
     text-shadow: 0 0 5px var(--accent-color);
 }
 
@@ -443,8 +604,25 @@ body[data-theme="hacker-terminal-vault-tec"] {
   --accent-hover-color: #fff178;
   --danger-color: #ff6b6b;
 }
-body[data-theme="hacker-terminal-vault-tec"] * { border-radius: 0 !important; }
-body[data-theme="hacker-terminal-vault-tec"] h1, h2, h3 { text-shadow: 0 0 5px var(--text-color); }
+/* --- Hacker Terminal Vault-Tec OLED --- */
+body[data-theme="hacker-terminal-vault-tec-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #27bce0;
+  --text-secondary-color: #1a7b94;
+  --primary-font: 'Fira Code', monospace;
+  --title-font: 'Fira Code', monospace;
+  --user-message-bg: #0a1d30;
+  --model-message-bg: #050510;
+  --border-color: #1d405c;
+  --accent-color: #ffe832;
+  --accent-hover-color: #fff178;
+  --danger-color: #ff6b6b;
+}
+body[data-theme="hacker-terminal-vault-tec"] *,
+body[data-theme="hacker-terminal-vault-tec-oled"] * { border-radius: 0 !important; }
+body[data-theme="hacker-terminal-vault-tec"] h1, h2, h3,
+body[data-theme="hacker-terminal-vault-tec-oled"] h1, h2, h3 { text-shadow: 0 0 5px var(--text-color); }
 
 /* --- Vampire Gothic Terminal (New) --- */
 body[data-theme="vampire-gothic-terminal"] {
@@ -461,15 +639,34 @@ body[data-theme="vampire-gothic-terminal"] {
   --accent-hover-color: #ff8080;
   --danger-color: #ff4d4d;
 }
-body[data-theme="vampire-gothic-terminal"] {
+/* --- Vampire Gothic OLED --- */
+body[data-theme="vampire-gothic-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #e0baba;
+  --text-secondary-color: #7d3c3c;
+  --primary-font: 'Fira Code', monospace;
+  --title-font: "Uncial Antiqua", cursive;
+  --user-message-bg: #1a0303;
+  --model-message-bg: #050510;
+  --border-color: #5c1f1f;
+  --accent-color: #ff4d4d;
+  --accent-hover-color: #ff8080;
+  --danger-color: #ff4d4d;
+}
+body[data-theme="vampire-gothic-terminal"],
+body[data-theme="vampire-gothic-oled"] {
   background-image: repeating-linear-gradient(0deg, rgba(100,0,0,0.1) 0, rgba(100,0,0,0.1) 1px, transparent 1px, transparent 3px);
 }
 body[data-theme="vampire-gothic-terminal"] h1,
-body[data-theme="vampire-gothic-terminal"] h2 {
+body[data-theme="vampire-gothic-terminal"] h2,
+body[data-theme="vampire-gothic-oled"] h1,
+body[data-theme="vampire-gothic-oled"] h2 {
   text-shadow: 0 0 6px var(--accent-color);
   font-weight: bold;
 }
-body[data-theme="vampire-gothic-terminal"] .message {
+body[data-theme="vampire-gothic-terminal"] .message,
+body[data-theme="vampire-gothic-oled"] .message {
   border-left: 2px solid var(--accent-color);
   border-radius: 0 8px 8px 0;
 }
@@ -550,12 +747,27 @@ body[data-theme="outer-space-alert"] {
   --accent-color: #ff4444;
   --accent-hover-color: #ff7777;
 }
+/* --- Outer Space Alert OLED --- */
+body[data-theme="outer-space-alert-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #ffdddd;
+  --text-secondary-color: #ff9999;
+  --primary-font: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --title-font: 'Orbitron', sans-serif;
+  --user-message-bg: rgba(255, 0, 0, 0.1);
+  --model-message-bg: #0a0a0a;
+  --border-color: #8f0000;
+  --accent-color: #ff4444;
+  --accent-hover-color: #ff7777;
+}
 @keyframes red-alert-pulse {
   0% { box-shadow: 0 0 10px #ff0000, inset 0 0 10px #ff0000; }
   50% { box-shadow: 0 0 20px #ff0000, inset 0 0 20px #ff0000; }
   100% { box-shadow: 0 0 10px #ff0000, inset 0 0 10px #ff0000; }
 }
-body[data-theme="outer-space-alert"] {
+body[data-theme="outer-space-alert"],
+body[data-theme="outer-space-alert-oled"] {
   animation: red-alert-pulse 2s infinite;
 }
 
@@ -592,7 +804,22 @@ body[data-theme="steampunk"] {
   --accent-color: #d4ac0d;
   --accent-hover-color: #e5be37;
 }
-body[data-theme="steampunk"] {
+/* --- Steampunk OLED --- */
+body[data-theme="steampunk-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #e6d8c9;
+  --text-secondary-color: #a39586;
+  --primary-font: "Merriweather", serif;
+  --title-font: "Uncial Antiqua", cursive;
+  --user-message-bg: #1a0f0a;
+  --model-message-bg: #050505;
+  --border-color: #a1887f;
+  --accent-color: #d4ac0d;
+  --accent-hover-color: #e5be37;
+}
+body[data-theme="steampunk"],
+body[data-theme="steampunk-oled"] {
   background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="52" height="26" viewBox="0 0 52 26"%3E%3Cg fill-rule="evenodd"%3E%3Cg fill="%233d2b1f" fill-opacity="0.4"%3E%3Cpath d="M10 10c0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6h2c0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4v2c-3.314 0-6-2.686-6-6 0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6zm25.464-1.95l8.486 8.486-1.414 1.414-8.486-8.486 1.414-1.414z" /%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
 }
 
@@ -610,8 +837,24 @@ body[data-theme="art-deco"] {
   --accent-color: #d4af37;
   --accent-hover-color: #e7c45f;
 }
+/* --- Art Deco OLED --- */
+body[data-theme="art-deco-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #c5b8a5;
+  --text-secondary-color: #8a7f70;
+  --primary-font: "Merriweather", serif;
+  --title-font: "Pirata One", cursive;
+  --user-message-bg: #0a0a0a;
+  --model-message-bg: #050505;
+  --border-color: #bfa885;
+  --accent-color: #d4af37;
+  --accent-hover-color: #e7c45f;
+}
 body[data-theme="art-deco"] .message,
-body[data-theme="art-deco"] .modal-content {
+body[data-theme="art-deco"] .modal-content,
+body[data-theme="art-deco-oled"] .message,
+body[data-theme="art-deco-oled"] .modal-content {
   border: 1px solid var(--border-color);
   border-image: linear-gradient(45deg, var(--accent-color), var(--border-color)) 1;
 }
@@ -652,21 +895,37 @@ body[data-theme="aquatic"] {
   --accent-color: #33d4ff;
   --accent-hover-color: #77e3ff;
 }
+/* --- Aquatic OLED --- */
+body[data-theme="aquatic-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #bfeaff;
+  --text-secondary-color: #7da5c2;
+  --primary-font: "Merriweather", serif;
+  --title-font: "Uncial Antiqua", cursive;
+  --user-message-bg: #001a30;
+  --model-message-bg: #050510;
+  --border-color: #3b6b9e;
+  --accent-color: #33d4ff;
+  --accent-hover-color: #77e3ff;
+}
 @keyframes underwater-ripple {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
-body[data-theme="aquatic"] {
-  background: linear-gradient(135deg, #0a1f3a 25%, transparent 25%) -50px 0,
-              linear-gradient(225deg, #0a1f3a 25%, transparent 25%) -50px 0,
-              linear-gradient(315deg, #0a1f3a 25%, transparent 25%),
-              linear-gradient(45deg, #0a1f3a 25%, transparent 25%);
+body[data-theme="aquatic"],
+body[data-theme="aquatic-oled"] {
+  background: linear-gradient(135deg, var(--background-color) 25%, transparent 25%) -50px 0,
+              linear-gradient(225deg, var(--background-color) 25%, transparent 25%) -50px 0,
+              linear-gradient(315deg, var(--background-color) 25%, transparent 25%),
+              linear-gradient(45deg, var(--background-color) 25%, transparent 25%);
   background-size: 100px 100px;
-  background-color: #061528;
+  background-color: var(--background-color);
   animation: underwater-ripple 15s ease infinite;
 }
-body[data-theme="aquatic"] h1, h2, h3 {
+body[data-theme="aquatic"] h1, body[data-theme="aquatic"] h2, body[data-theme="aquatic"] h3,
+body[data-theme="aquatic-oled"] h1, body[data-theme="aquatic-oled"] h2, body[data-theme="aquatic-oled"] h3 {
   text-shadow: 0 0 5px var(--accent-color);
 }
 
@@ -680,6 +939,20 @@ body[data-theme="apocalyptic"] {
   --title-font: 'Orbitron', sans-serif;
   --user-message-bg: #4f4d48;
   --model-message-bg: #2b2a26;
+  --border-color: #615f58;
+  --accent-color: #a3955a;
+  --accent-hover-color: #bdb078;
+}
+/* --- Apocalyptic OLED --- */
+body[data-theme="apocalyptic-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #adaa9d;
+  --text-secondary-color: #7b7971;
+  --primary-font: 'Fira Code', monospace;
+  --title-font: 'Orbitron', sans-serif;
+  --user-message-bg: #1a1a15;
+  --model-message-bg: #050505;
   --border-color: #615f58;
   --accent-color: #a3955a;
   --accent-hover-color: #bdb078;
@@ -734,13 +1007,28 @@ body[data-theme="celestial"] {
   --accent-color: #d8b8ff;
   --accent-hover-color: #e8d0ff;
 }
+/* --- Celestial OLED --- */
+body[data-theme="celestial-oled"] {
+  --background-color: #000000;
+  --sidebar-color: #000000;
+  --text-color: #d8d8e8;
+  --text-secondary-color: #8c8ca0;
+  --primary-font: "Merriweather", serif;
+  --title-font: "Uncial Antiqua", cursive;
+  --user-message-bg: #1a1a2a;
+  --model-message-bg: #050510;
+  --border-color: #63608a;
+  --accent-color: #d8b8ff;
+  --accent-hover-color: #e8d0ff;
+}
 @keyframes move-stars {
   from { background-position: 0 0; }
   to { background-position: -10000px 5000px; }
 }
-body[data-theme="celestial"] {
+body[data-theme="celestial"],
+body[data-theme="celestial-oled"] {
   background-image: url('https://www.transparenttextures.com/patterns/stardust.png');
-  background-color: #100f1a;
+  background-color: var(--background-color);
   animation: move-stars 200s linear infinite;
 }
 body[data-theme="celestial"] .message.model {
@@ -854,6 +1142,8 @@ body.app-visible .chat-view {
 
 body.sidebar-open #sidebar {
   transform: translateX(0);
+  transform-origin: left;
+  animation: stretch-and-form 0.4s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards;
 }
 
 .sidebar-header {
@@ -1070,6 +1360,11 @@ main {
   border-radius: 8px;
   z-index: 5;
   box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  transform-origin: top right;
+}
+
+#combat-tracker:not(.hidden) {
+  animation: stretch-and-form 0.4s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards;
 }
 #combat-tracker-header {
   display: flex;
@@ -1455,12 +1750,14 @@ footer {
   opacity: 0;
   transform: translateY(10px);
   transition: visibility 0.2s, opacity 0.2s, transform 0.2s;
+  transform-origin: bottom;
 }
 
 .inventory-popup.visible {
   visibility: visible;
   opacity: 1;
   transform: translateY(0);
+  animation: stretch-and-form 0.4s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards;
 }
 
 .inventory-header {
@@ -1742,6 +2039,12 @@ footer {
     display: flex;
     flex-direction: column;
     box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    transform-origin: center;
+    animation: stretch-and-form 0.4s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards;
+}
+
+.modal-content.closing {
+  animation: shrink-and-hide 0.4s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards;
 }
 
 .modal-content form {
@@ -1912,6 +2215,8 @@ footer {
     padding: 0.5rem 0;
     min-width: 150px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transform-origin: top left;
+    animation: stretch-and-form 0.3s cubic-bezier(0.785, 0.135, 0.15, 0.86) forwards;
 }
 .chat-options-menu li {
     padding: 0.75rem 1.25rem;
