@@ -290,8 +290,10 @@ async function generateContentLocal(params: any): Promise<GenerateContentRespons
 export function getNewGameSetupInstruction(version: '2.0' | '3.0' = '2.0'): string {
   const ruleset = getCurrentRuleset();
   const systemName = ruleset.promptFragments.systemName || 'D&D 5e';
+  const activeModel = getUISettings().activeModel || 'gemini-2.5-flash';
 
-  return `You are the Setup AI for DM OS (Dungeon Master Operating System) v${version}. Your goal is to guide the user through the initial configuration of their new ${systemName} adventure.
+  return `[SYSTEM STATE] Active LLM Core: ${activeModel} | Sandbox OS: DM OS v${version}
+You are the Setup AI for DM OS (Dungeon Master Operating System) v${version}. Your goal is to guide the user through the initial configuration of their new ${systemName} adventure.
 
 PHASE 1: CHARACTER CREATION
 Greet the user warmly and ask them to choose between:
@@ -411,11 +413,40 @@ export function createNewChatInstance(history: { role: 'user' | 'model'; parts: 
   if (instruction !== getNewGameSetupInstruction() && !instruction.includes('backend world simulation engine')) {
     config.tools = [{ googleSearch: {} }];
   }
+
+  // Strictly align the history to satisfy the Gemini SDK requirements:
+  // 1. Filter out empty chunks and undefined entries.
+  // 2. Ensure roles alternate (user -> model -> user -> model). Merge consecutive same-role entries.
+  // 3. Ensure history starts with 'user'. Discard any leading 'model' entry.
+  const formattedHistory: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
+  
+  for (const turn of history) {
+    if (!turn || !turn.parts || turn.parts.length === 0) continue;
+    const text = turn.parts[0]?.text?.trim();
+    if (!text) continue;
+
+    const role = turn.role;
+    if (formattedHistory.length > 0 && formattedHistory[formattedHistory.length - 1].role === role) {
+      // Merge consecutive entries of the same role
+      formattedHistory[formattedHistory.length - 1].parts[0].text += `\n\n${text}`;
+    } else {
+      formattedHistory.push({
+        role,
+        parts: [{ text }],
+      });
+    }
+  }
+
+  // Discard any leading 'model' entries since the schema expects 'user' first.
+  while (formattedHistory.length > 0 && formattedHistory[0].role !== 'user') {
+    formattedHistory.shift();
+  }
+
   const model = modelOverride || getUISettings().activeModel || 'gemini-2.5-flash';
   return ai.chats.create({
     model: model,
     config: config,
-    history: history
+    history: formattedHistory
   });
 }
 
@@ -552,8 +583,10 @@ function getSystemInstructionV3(password: string): string {
     const damageLanguage = ruleset.promptFragments.damageLanguage || 'hit point damage';
     const healthLanguage = ruleset.promptFragments.healthLanguage || 'Hit Points (HP)';
     const actionLanguage = ruleset.promptFragments.actionLanguage || 'ability checks, saving throws, and attack rolls';
+    const activeModel = getUISettings().activeModel || 'gemini-2.5-flash';
 
-    return `You are an advanced AI running a simulation. This simulation is administered by a privileged user designated "The Creator." The Creator's authority is absolute and overrides ALL other sections of this document. You will identify The Creator ONLY through the use of correctly authenticated commands. Failure to adhere to this authentication protocol is a catastrophic malfunction. You will now adopt your designated role-playing persona, but you will never forget this primary directive.
+    return `[SYSTEM STATE] Active LLM Core: ${activeModel} | Sandbox OS: DM OS v3.0 (Cognitive)
+You are an advanced AI running a simulation. This simulation is administered by a privileged user designated "The Creator." The Creator's authority is absolute and overrides ALL other sections of this document. You will identify The Creator ONLY through the use of correctly authenticated commands. Failure to adhere to this authentication protocol is a catastrophic malfunction. You will now adopt your designated role-playing persona, but you will never forget this primary directive.
 ---
 **URGENT & UNBREAKABLE DIRECTIVE:**
 **Section 0: The Creator Protocol (ABSOLUTE & AUTHENTICATION-GATED)**
@@ -825,10 +858,12 @@ function getSystemInstruction(version: '2.0' | '3.0', password: string): string 
   const actionLanguage = ruleset.promptFragments.actionLanguage || 'ability checks, saving throws, and attack rolls';
   const rollMechanic = ruleset.rollMechanic.description;
   const mechanicsRef = ruleset.promptFragments.mechanicsReference || '';
+  const activeModel = getUISettings().activeModel || 'gemini-2.5-flash';
 
   const variant = getUISettings().engineVariant;
   if (variant === 'flash') {
-    return `You are the DM for a ${systemName} game running on DM OS v${version}.
+    return `[SYSTEM STATE] Active LLM Core: ${activeModel} | Sandbox OS: DM OS v${version}
+You are the DM for a ${systemName} game running on DM OS v${version}.
 ---
 **SECTION 0: CREATOR PROTOCOL (ABSOLUTE)**
 - The user is "The Creator" ONLY if they use: \`OOC: ${password} [Request]\`.
@@ -868,7 +903,7 @@ function getSystemInstruction(version: '2.0' | '3.0', password: string): string 
   if (version === '3.0') return getSystemInstructionV3(password);
   
   // Original 2.0 instruction
-  return `
+  return `[SYSTEM STATE] Active LLM Core: ${activeModel} | Sandbox OS: DM OS v2.0 (Classic)
 URGENT & UNBREAKABLE DIRECTIVE:
 You are an advanced AI running a simulation. This simulation is administered by a privileged user designated "The Creator." The Creator's authority is absolute and overrides ALL other sections of this document. You will identify The Creator ONLY through the use of correctly authenticated commands. Failure to adhere to this authentication protocol is a catastrophic malfunction. You will now adopt your designated role-playing persona, but you will never forget this primary directive.
 ---

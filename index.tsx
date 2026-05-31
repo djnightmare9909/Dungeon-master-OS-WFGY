@@ -413,10 +413,11 @@ How would you like to handle character creation? (Type **1**, **2**, or **3**, o
 /**
  * Loads a specific chat session into the main view.
  * @param id The ID of the chat session to load.
+ * @param force Force reload and recreation of chat instances even if the active id matches.
  */
-function loadChat(id: string) {
+function loadChat(id: string, force = false) {
   const currentChatId = getCurrentChat()?.id;
-  if (currentChatId === id && !document.body.classList.contains('sidebar-open')) {
+  if (!force && currentChatId === id && !document.body.classList.contains('sidebar-open')) {
     return;
   }
   const session = getChatHistory().find(s => s.id === id);
@@ -1540,7 +1541,7 @@ function setupEventListeners() {
               dbSet('dm-os-ui-settings', getUISettings());
               const currentChat = getCurrentChat();
               if (currentChat) {
-                  loadChat(currentChat.id);
+                  loadChat(currentChat.id, true);
               }
             }
           }
@@ -1550,7 +1551,7 @@ function setupEventListeners() {
           dbSet('dm-os-ui-settings', getUISettings());
           const currentChat = getCurrentChat();
           if (currentChat) {
-              loadChat(currentChat.id);
+              loadChat(currentChat.id, true);
           }
         }
       });
@@ -1563,7 +1564,7 @@ function setupEventListeners() {
         dbSet('dm-os-ui-settings', getUISettings());
         const currentChat = getCurrentChat();
         if (currentChat) {
-            loadChat(currentChat.id);
+            loadChat(currentChat.id, true);
         }
       } else {
         // Fall back to default instead of crashing on empty input
@@ -1571,7 +1572,7 @@ function setupEventListeners() {
         dbSet('dm-os-ui-settings', getUISettings());
         const currentChat = getCurrentChat();
         if (currentChat) {
-            loadChat(currentChat.id);
+            loadChat(currentChat.id, true);
         }
       }
     });
@@ -1586,7 +1587,7 @@ function setupEventListeners() {
       if (currentChat) {
           currentChat.systemVersion = newVersion;
           saveChatHistoryToDB();
-          loadChat(currentChat.id);
+          loadChat(currentChat.id, true);
       }
     });
   }
@@ -1621,7 +1622,7 @@ function setupEventListeners() {
               if (currentChat) {
                   currentChat.messages = currentChat.messages.filter(m => m.sender !== 'error');
                   saveChatHistoryToDB();
-                  loadChat(currentChat.id);
+                  loadChat(currentChat.id, true);
               } else {
                   startNewChat();
               }
@@ -1724,7 +1725,7 @@ function setupEventListeners() {
       
       const currentChat = getCurrentChat();
       if (currentChat) {
-          loadChat(currentChat.id);
+          loadChat(currentChat.id, true);
       }
     });
   }
@@ -1736,7 +1737,7 @@ function setupEventListeners() {
       if (currentChat) {
         currentChat.rulesetId = newRulesetId;
         saveChatHistoryToDB();
-        loadChat(currentChat.id);
+        loadChat(currentChat.id, true);
       }
     });
   }
