@@ -364,26 +364,22 @@ async function startNewChat() {
   closeSidebar();
   chatContainer.innerHTML = ''; // Clear the view immediately
 
-  const loadingContainer = appendMessage({ sender: 'model', text: '' });
-  const loadingMessage = loadingContainer.querySelector('.message') as HTMLElement;
-  loadingMessage.classList.add('loading');
-  loadingMessage.textContent = 'Starting new game setup...';
-
   try {
     const version = getUISettings().systemVersion || '3.0';
-    const instruction = getNewGameSetupInstruction(version);
-    const setupGeminiChat = createNewChatInstance([], instruction);
+    const ruleset = getCurrentRuleset();
+    const systemName = ruleset.promptFragments.systemName || 'D&D 5e';
 
     const kickoffMessage = "Let's begin the setup for our new game.";
     const firstUserMessage: Message = { sender: 'user', text: kickoffMessage, hidden: true };
 
-    const result = await retryOperation(() => setupGeminiChat.sendMessageStream({ message: kickoffMessage })) as any;
-    let responseText = '';
-    for await (const chunk of result) {
-      responseText += chunk.text || '';
-    }
+    const responseText = `Welcome, adventurer! Greet the user warmly and ask them to choose between:
+1. **Quick Start**: Generate pre-made characters to jump straight into the action.
+2. **Guided Setup**: Walk through step-by-step custom character design formatted for the standard sheet.
+3. **Upload**: Import an existing character sheet (text or JSON) from your logs.
 
-    loadingContainer.remove();
+Since our active ruleset is **${systemName}**, we will establish stats, alignments, and classes standard to this rulesystem.
+
+How would you like to handle character creation? (Type **1**, **2**, or **3**, or describe your choice!)`;
 
     const firstModelMessage: Message = { sender: 'model', text: responseText };
     const newId = `chat-${Date.now()}`;
@@ -410,24 +406,7 @@ async function startNewChat() {
     loadChat(newId);
   } catch (error: any) {
     console.error('New game setup failed:', error);
-    loadingContainer.remove();
-    
-    let errorMessage = `Failed to start game. Error details: ${error.message || 'Unknown error'}`;
-    
-    // Handle Rate Limit (429) specific message
-    if (error.status === 429 || (error.message && error.message.includes('429')) || errorMessage.includes('429')) {
-        errorMessage = "⚠️ System Overload (429): The 'Gemini 3.0 Pro' model is currently busy. Please go to Settings (in Logbook) and switch the AI Model to 'Gemini 2.5 Flash' for a smoother experience.";
-    }
-    
-    if (errorMessage.includes('API Key') || errorMessage.includes('API key') || errorMessage.includes('403') || error.status === 403 || error.code === 403) {
-        errorMessage = "⚠️ AI Connection Required: To use DM OS, you must have a valid Google AI Studio API key OR a configured Local AI server.\n\n1. For Gemini: Get your key from Google AI Studio (aistudio.google.com).\n2. For Local AI: Ensure your server (LM Studio, etc.) is running and accessible.\n3. Open the Logbook (top right), go to Settings, configure your AI source, and Save.";
-        // Auto-open settings
-        openModal(logbookModal);
-        const settingsTabBtn = document.querySelector('[data-tab="settings"]') as HTMLElement;
-        if (settingsTabBtn) settingsTabBtn.click();
-    }
-    
-    appendMessage({ sender: 'error', text: errorMessage });
+    appendMessage({ sender: 'error', text: `Failed to initialize setup: ${error.message}` });
   }
 }
 
@@ -1100,7 +1079,8 @@ async function handleFormSubmit(e: Event) {
       }
       // Handle Rate Limit (429) specific message
       if (error.status === 429 || (error.message && error.message.includes('429'))) {
-          errorMessage = "⚠️ System Overload (429): The 'Gemini 3.0 Pro' model is currently busy. Please go to Settings (in Logbook) and switch the AI Model to 'Gemini 2.5 Flash' for a smoother experience.";
+          const activeModel = getUISettings().activeModel || 'Gemini';
+          errorMessage = `⚠️ System Overload (429): The '${activeModel}' model is currently busy. Please go to Settings (in Logbook) and switch the AI Model to 'Gemini 2.5 Flash' for a smoother experience.`;
       }
       appendMessage({ sender: 'error', text: errorMessage });
     }
@@ -1623,8 +1603,28 @@ function setupEventListeners() {
               if (customEndpointInput) settings.customEndpointUrl = customEndpointInput.value.trim();
               if (customHeadersInput) settings.customHeaderConfig = customHeadersInput.value.trim();
 
+              // Explicitly capture active model settings as well during save configuration
+              if (modelSelect) {
+                  if (modelSelect.value === 'custom' && modelCustomInput) {
+                      const val = modelCustomInput.value.trim();
+                      if (val.length > 0) settings.activeModel = val;
+                  } else {
+                      settings.activeModel = modelSelect.value;
+                  }
+              }
+
               dbSet('dm-os-ui-settings', settings);
               resetAI(); 
+              
+              // Dynamically clear any old connection error messages from active chat and re-load
+              const currentChat = getCurrentChat();
+              if (currentChat) {
+                  currentChat.messages = currentChat.messages.filter(m => m.sender !== 'error');
+                  saveChatHistoryToDB();
+                  loadChat(currentChat.id);
+              } else {
+                  startNewChat();
+              }
               
               const originalText = saveApiKeyBtn.textContent;
               saveApiKeyBtn.textContent = 'Saved!';
