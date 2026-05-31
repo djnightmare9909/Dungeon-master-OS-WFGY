@@ -166,6 +166,45 @@ import {
   resetAI,
   generateEmbedding
 } from './gemini';
+
+// --- Platform Compatibility Helpers (he/Yn) ---
+/**
+ * Mocking the 'he' platform object for native-style file uploads.
+ * This converts files to base64 for browser-side Gemini SDK compatibility.
+ */
+const he = {
+  files: {
+    upload: async (params: { file: File, config: { mimeType: string, displayName: string } }) => {
+      const base64 = await fileToBase64(params.file);
+      return {
+        mimeType: params.config.mimeType,
+        uri: `data:${params.config.mimeType};base64,${base64}`,
+        displayName: params.config.displayName
+      };
+    }
+  }
+};
+
+/**
+ * Mocking the 'Yn' platform object to interact with the game chat.
+ */
+const Yn = () => {
+  return {
+    sendMessage: async (parts: (string | any)[]) => {
+        // Find if any part is a string to use as the representative message text
+        // and find file parts to pass to Gemini.
+        const textPart = parts.find(p => typeof p === 'string') || "Uploaded a file.";
+        const fileParts = parts.filter(p => typeof p === 'object' && p.fileData);
+        
+        // We'll ignore the automatic sendMessage for now and let handleFileUpload call the existing chain
+        // OR we can implement the send logic here if we want to honor the snippets literally.
+        // Actually, it's safer to just expose the current chat session's capabilities.
+        console.log("Yn.sendMessage triggered with parts:", parts);
+        // This is a bridge. In the real implementation below, handleFileUpload uses these helpers.
+    }
+  };
+};
+
 import { retryOperation } from './utils';
 // Fix: import UISettings type
 import type { Message, ChatSession, UISettings, GameSettings } from './types';
@@ -377,13 +416,7 @@ async function startNewChat() {
     
     // Handle Rate Limit (429) specific message
     if (error.status === 429 || (error.message && error.message.includes('429')) || errorMessage.includes('429')) {
-        const activeModel = getUISettings().activeModel;
-        const modelDisplay = activeModel.includes('pro') ? 'Gemini Pro' : (activeModel.includes('flash') ? 'Gemini Flash' : activeModel);
-        if (activeModel.includes('pro')) {
-            errorMessage = `⚠️ System Overload (429): The '${modelDisplay}' model is currently busy. Please go to Settings (in Logbook) and switch the AI Model to 'Gemini 2.5 Flash' for a smoother experience.`;
-        } else {
-            errorMessage = `⚠️ System Overload (429): The '${modelDisplay}' model is hitting a rate limit. Please wait a moment before trying again, or check your API quota in Google AI Studio.`;
-        }
+        errorMessage = "⚠️ System Overload (429): The 'Gemini 3.0 Pro' model is currently busy. Please go to Settings (in Logbook) and switch the AI Model to 'Gemini 2.5 Flash' for a smoother experience.";
     }
     
     if (errorMessage.includes('API Key') || errorMessage.includes('API key') || errorMessage.includes('403') || error.status === 403 || error.code === 403) {
@@ -539,7 +572,7 @@ async function finalizeSetupAndStartGame(session: ChatSession, title: string, fi
   session.creationPhase = false;
   session.title = title;
 
-  if (finalSetupMessage) {
+  if (finalSetupMessage && !session.messages.includes(finalSetupMessage)) {
     // The message is already in the DOM from the streaming function.
     // We just need to ensure it's in the state.
     session.messages.push(finalSetupMessage);
@@ -578,18 +611,31 @@ async function finalizeSetupAndStartGame(session: ChatSession, title: string, fi
       let openingSceneText = '';
       gameLoadingMessage.classList.remove('loading');
       gameLoadingMessage.innerHTML = '';
+
+      const openingSceneMessage: Message = { sender: 'model', text: '' };
+      session.messages.push(openingSceneMessage);
+      saveChatHistoryToDB();
+
+      let lastSaveTime = Date.now();
       for await (const chunk of kickoffResult) {
         openingSceneText += chunk.text || '';
         gameLoadingMessage.innerHTML = openingSceneText;
+        openingSceneMessage.text = openingSceneText;
+
+        const now = Date.now();
+        if (now - lastSaveTime > 1500) {
+          saveChatHistoryToDB();
+          lastSaveTime = now;
+        }
+
         if (shouldScroll) {
           chatContainer.scrollTop = chatContainer.scrollHeight;
         }
       }
       gameLoadingContainer.remove();
 
-      const openingSceneMessage: Message = { sender: 'model', text: openingSceneText };
+      openingSceneMessage.text = openingSceneText;
       appendMessage(openingSceneMessage);
-      session.messages.push(openingSceneMessage);
       saveChatHistoryToDB();
     } else {
       gameLoadingContainer.remove();
@@ -641,6 +687,7 @@ async function handleFormSubmit(e: Event) {
       const userMessage: Message = { sender: 'user', text: isPassword ? '********' : userInput, hidden: isPassword };
       if (!isPassword) appendMessage(userMessage);
       currentSession.messages.push(userMessage);
+      saveChatHistoryToDB(); // Save user prompt immediately!
       chatInput.value = '';
       chatInput.style.height = 'auto';
 
@@ -660,6 +707,10 @@ async function handleFormSubmit(e: Event) {
       modelMessageEl.classList.add('loading');
       modelMessageEl.textContent = '...';
       const shouldScroll = chatContainer.scrollHeight - chatContainer.clientHeight <= chatContainer.scrollTop + 10;
+
+      const modelMessage: Message = { sender: 'model', text: '' };
+      currentSession.messages.push(modelMessage);
+      saveChatHistoryToDB(); // Save placeholder immediately!
 
       try {
         const geminiChat = getGeminiChat();
@@ -683,9 +734,18 @@ async function handleFormSubmit(e: Event) {
         modelMessageEl.classList.remove('loading');
         modelMessageEl.innerHTML = '';
 
+        let lastSaveTime = Date.now();
         for await (const chunk of result) {
           responseText += chunk.text || '';
           modelMessageEl.innerHTML = responseText;
+          modelMessage.text = responseText; // sync with state
+
+          const now = Date.now();
+          if (now - lastSaveTime > 1500) {
+            saveChatHistoryToDB();
+            lastSaveTime = now;
+          }
+
           if (shouldScroll) {
             chatContainer.scrollTop = chatContainer.scrollHeight;
           }
@@ -699,8 +759,7 @@ async function handleFormSubmit(e: Event) {
           currentSession.creationPhase = 'character_creation';
           const setupMessageText = responseText.replace('[START_GUIDED_SETUP]', '').trim();
           modelMessageEl.innerHTML = setupMessageText;
-          const setupMessage: Message = { sender: 'model', text: setupMessageText };
-          currentSession.messages.push(setupMessage);
+          modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
           return;
         }
@@ -709,8 +768,7 @@ async function handleFormSubmit(e: Event) {
           currentSession.creationPhase = 'character_upload';
           const setupMessageText = responseText.replace('[START_UPLOAD_SETUP]', '').trim();
           modelMessageEl.innerHTML = setupMessageText;
-          const setupMessage: Message = { sender: 'model', text: setupMessageText };
-          currentSession.messages.push(setupMessage);
+          modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
           return;
         }
@@ -719,8 +777,7 @@ async function handleFormSubmit(e: Event) {
             currentSession.creationPhase = 'narrator_selection';
             const setupMessageText = responseText.replace('[CHARACTER_CREATION_COMPLETE]', '').trim();
             modelMessageEl.innerHTML = setupMessageText;
-            const setupMessage: Message = { sender: 'model', text: setupMessageText };
-            currentSession.messages.push(setupMessage);
+            modelMessage.text = setupMessageText;
             saveChatHistoryToDB();
             renderSetupChoices();
             return;
@@ -731,8 +788,7 @@ async function handleFormSubmit(e: Event) {
           currentSession.creationPhase = 'quick_start_selection';
           const setupMessageText = responseText.replace('[GENERATE_QUICK_START_CHARACTERS]', '').trim();
           modelMessageEl.innerHTML = setupMessageText;
-          const setupMessage: Message = { sender: 'model', text: setupMessageText };
-          currentSession.messages.push(setupMessage);
+          modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
 
           const charLoadingContainer = appendMessage({ sender: 'model', text: '' });
@@ -770,16 +826,20 @@ async function handleFormSubmit(e: Event) {
           const title = titleMatch?.[1]?.trim() || "New Adventure";
           const finalSetupText = responseText.replace('[SETUP_COMPLETE]', '').replace(/Title:\s*(.*)/, '').trim();
           modelMessageEl.innerHTML = finalSetupText;
-          const finalSetupMessage: Message = { sender: 'model', text: finalSetupText };
-          await finalizeSetupAndStartGame(currentSession, title, finalSetupMessage);
+          modelMessage.text = finalSetupText;
+          await finalizeSetupAndStartGame(currentSession, title, modelMessage);
         } else {
-          const setupMessage: Message = { sender: 'model', text: responseText };
-          currentSession.messages.push(setupMessage);
+          modelMessage.text = responseText;
           saveChatHistoryToDB();
         }
       } catch (error) {
         console.error("Setup AI Error:", error);
         modelMessageContainer.remove();
+        const msgIndex = currentSession.messages.indexOf(modelMessage);
+        if (msgIndex !== -1) {
+          currentSession.messages.splice(msgIndex, 1);
+          saveChatHistoryToDB();
+        }
         appendMessage({ sender: 'error', text: 'The setup guide seems to have gotten lost. Please try again.' });
       }
       return;
@@ -823,6 +883,7 @@ async function handleFormSubmit(e: Event) {
     const userMessage: Message = { sender: 'user', text: userInput };
     currentSession.messages.push(userMessage);
     appendMessage(userMessage);
+    saveChatHistoryToDB(); // Save user prompt immediately!
     chatInput.value = '';
     chatInput.style.height = 'auto';
 
@@ -831,6 +892,10 @@ async function handleFormSubmit(e: Event) {
     modelMessageEl.classList.add('loading');
     modelMessageEl.textContent = '...';
     const shouldScroll = chatContainer.scrollHeight - chatContainer.clientHeight <= chatContainer.scrollTop + 10;
+
+    const modelMessage: Message = { sender: 'model', text: '' };
+    currentSession.messages.push(modelMessage);
+    saveChatHistoryToDB(); // Save empty placeholder immediately!
 
     try {
       const context = getUserContext();
@@ -869,6 +934,7 @@ async function handleFormSubmit(e: Event) {
       while (attempts < maxAttempts && !validationPassed) {
         try {
           responseText = '';
+          modelMessage.text = ''; // sync with attempt start
           modelMessageEl.classList.add('loading');
           modelMessageEl.textContent = '...';
           
@@ -879,7 +945,7 @@ async function handleFormSubmit(e: Event) {
           const instruction = persona.getInstruction(currentSession.adminPassword || '', version);
           
           const geminiHistory = currentSession.messages
-            .filter(m => m.sender !== 'error')
+            .filter(m => m.sender !== 'error' && m !== modelMessage) // Exclude current modelMessage placeholder!
             .map(m => ({
               role: (m.sender === 'system' ? 'user' : m.sender) as 'user' | 'model',
               parts: [{ text: m.text }],
@@ -893,6 +959,7 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.classList.remove('loading');
           modelMessageEl.innerHTML = '';
 
+          let lastSaveTime = Date.now();
           for await (const chunk of result) {
             responseText += chunk.text || '';
             let displayHtml = responseText
@@ -902,6 +969,14 @@ async function handleFormSubmit(e: Event) {
               .replace(/\[INTENT:.*?\]/g, '')
               .trim();
             modelMessageEl.innerHTML = displayHtml;
+            modelMessage.text = displayHtml; // Keep database updated with clean display HTML during stream!
+
+            const now = Date.now();
+            if (now - lastSaveTime > 1500) {
+              saveChatHistoryToDB();
+              lastSaveTime = now;
+            }
+
             if (shouldScroll) {
               chatContainer.scrollTop = chatContainer.scrollHeight;
             }
@@ -921,6 +996,8 @@ async function handleFormSubmit(e: Event) {
           if (attempts >= maxAttempts) {
             responseText = "The simulation has become unstable. [WFGY CRITICAL COLLAPSE]";
             modelMessageEl.innerHTML = responseText;
+            modelMessage.text = responseText;
+            saveChatHistoryToDB();
             break;
           }
           // The interceptor already pushed a [WFGY COLLAPSE] message to session.history
@@ -966,17 +1043,14 @@ async function handleFormSubmit(e: Event) {
         }
       }
 
-      const finalMessage: Message = { sender: 'model', text: responseText.replace(combatStatusRegex, '').replace(logbookUpdateRegex, '').trim() };
-      currentSession.messages.push(finalMessage);
+      modelMessage.text = responseText.replace(combatStatusRegex, '').replace(logbookUpdateRegex, '').trim();
       saveChatHistoryToDB();
       
       // --- WFGY AUDIT TRIGGER ---
       (async () => {
         try {
-          // Stagger background tasks to avoid hitting the rate limit immediately after the main turn
-          await new Promise(resolve => setTimeout(resolve, 1500));
           const userEmb = await generateEmbedding(userInput);
-          const dmEmb = await generateEmbedding(finalMessage.text);
+          const dmEmb = await generateEmbedding(modelMessage.text);
           await runWFGYAudit(userEmb, dmEmb);
         } catch (err) {
           console.error("WFGY Audit failed:", err);
@@ -995,26 +1069,25 @@ async function handleFormSubmit(e: Event) {
 
       if (isWorldTurn && getChroniclerChat()) {
         // This runs in the background and does not block the UI.
-        (async () => {
-             await new Promise(resolve => setTimeout(resolve, 3000));
-             runChroniclerTurn(userInput).catch(err => {
-                console.error("Caught an error from the background chronicler turn:", err);
-            });
-        })();
+        runChroniclerTurn(userInput).catch(err => {
+            console.error("Caught an error from the background chronicler turn:", err);
+        });
       }
 
       // --- MEMORY COMPRESSION TRIGGER ---
       // Periodically summarize old messages to keep the context window clean.
-      (async () => {
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          pruneAndSummarizeHistory().catch(err => {
-              console.error("Memory compression failed:", err);
-          });
-      })();
+      pruneAndSummarizeHistory().catch(err => {
+          console.error("Memory compression failed:", err);
+      });
 
     } catch (error: any) {
       console.error("Gemini API Error:", error);
       modelMessageContainer.remove();
+      const msgIndex = currentSession.messages.indexOf(modelMessage);
+      if (msgIndex !== -1) {
+        currentSession.messages.splice(msgIndex, 1);
+        saveChatHistoryToDB();
+      }
       let errorMessage = 'The DM seems to be pondering deeply ... and has gone quiet. Please try again.';
       if (error instanceof Error) {
           errorMessage = `AI Connection Error: ${error.message}`;
@@ -1027,13 +1100,7 @@ async function handleFormSubmit(e: Event) {
       }
       // Handle Rate Limit (429) specific message
       if (error.status === 429 || (error.message && error.message.includes('429'))) {
-          const activeModel = getUISettings().activeModel;
-          const modelDisplay = activeModel.includes('pro') ? 'Gemini Pro' : (activeModel.includes('flash') ? 'Gemini Flash' : activeModel);
-          if (activeModel.includes('pro')) {
-              errorMessage = `⚠️ System Overload (429): The '${modelDisplay}' model is currently busy. Please go to Settings (in Logbook) and switch the AI Model to 'Gemini 2.5 Flash' for a smoother experience.`;
-          } else {
-              errorMessage = `⚠️ System Overload (429): The '${modelDisplay}' model is hitting a rate limit. Please wait a moment before trying again, or check your API quota in Google AI Studio.`;
-          }
+          errorMessage = "⚠️ System Overload (429): The 'Gemini 3.0 Pro' model is currently busy. Please go to Settings (in Logbook) and switch the AI Model to 'Gemini 2.5 Flash' for a smoother experience.";
       }
       appendMessage({ sender: 'error', text: errorMessage });
     }
@@ -1062,81 +1129,125 @@ async function handleFileUpload(event: Event) {
       return;
   }
 
-  const messageEl = appendFileProcessingMessage(file.name);
   const currentSession = getCurrentChat();
-  if (!currentSession) {
-      messageEl.classList.remove('loading');
-      messageEl.innerHTML = `<span>❌ Error: No active chat session.</span>`;
+  if (!currentSession || isSending()) {
       return;
   }
 
-  try {
-    const CHUNK_LIMIT = 8000;
-    let extractedText = '';
-    let fileTypeForPrompt = '';
-    let promptText = '';
+  const messageEl = appendFileProcessingMessage(file.name);
+  let modelMessage: Message | null = null;
 
-    const processFile = async (prompt: string) => {
-      const base64Data = await fileToBase64(file);
-      const response = await retryOperation(() => ai.models.generateContent({
-        model: getUISettings().activeModel,
-        contents: { parts: [
-          { inlineData: { mimeType: file.type, data: base64Data } },
-          { text: prompt }
-        ]},
-      })) as GenerateContentResponse;
-      return response.text || '';
+  try {
+    // 1. Native-style upload (Mocked via 'he' helper for compatibility with requested pattern)
+    // This allows the AI to "see" the file directly rather than just extracted text.
+    const uploadResponse = await he.files.upload({
+      file: file,
+      config: { mimeType: file.type, displayName: file.name }
+    });
+
+    // 2. Reference the file in the chat
+    const base64Data = uploadResponse.uri.split(',')[1];
+    const filePart = {
+      inlineData: {
+        mimeType: uploadResponse.mimeType,
+        data: base64Data
+      }
     };
 
+    // 3. Prepare prompt
     const ruleset = getCurrentRuleset();
     const systemName = ruleset.promptFragments.systemName || 'D&D 5e';
+    let prompt = `Analyze this ${file.type} file named "${file.name}". How does it fit into our current ${systemName} situation?`;
+    
+    if (currentSession.creationPhase === 'character_upload') {
+      prompt = "Interpret this character sheet.";
+    }
 
-    if (file.type.startsWith('text/')) {
-      extractedText = await file.text();
-      fileTypeForPrompt = 'text file';
-    } else if (file.type.startsWith('image/')) {
-      promptText = `Concisely describe the contents and style of this image. This will be used as RAG context for a ${systemName} game.`;
-      extractedText = await processFile(promptText);
-      fileTypeForPrompt = 'image';
-    } else if (file.type.startsWith('audio/')) {
-      promptText = `Transcribe the audio from this file. This will be used as RAG context for a ${systemName} game.`;
-      extractedText = await processFile(promptText);
-      fileTypeForPrompt = 'audio file';
-    } else if (file.type.startsWith('video/')) {
-      promptText = `Provide a concise summary of the content of this video. This will be used as RAG context for a ${systemName} game.`;
-      extractedText = await processFile(promptText);
-      fileTypeForPrompt = 'video file';
-    } else if (file.type === 'application/pdf') {
-      promptText = `Extract the full text content from this document. This will be used as RAG context for a ${systemName} game.`;
-      extractedText = await processFile(promptText);
-      fileTypeForPrompt = 'document';
+    // Modern multi-modal flow: Send it straight to the AI
+    messageEl.remove();
+
+    const userMessage: Message = { sender: 'user', text: `[Uploaded ${file.name}] ${prompt}` };
+    appendMessage(userMessage);
+    currentSession.messages.push(userMessage);
+    saveChatHistoryToDB(); // Save user prompt immediately!
+    
+    setSending(true);
+    const modelMessageContainer = appendMessage({ sender: 'model', text: '' });
+    const modelMessageEl = modelMessageContainer.querySelector('.message') as HTMLElement;
+    modelMessageEl.classList.add('loading');
+    modelMessageEl.textContent = '...';
+    const shouldScroll = chatContainer.scrollHeight - chatContainer.clientHeight <= chatContainer.scrollTop + 10;
+
+    modelMessage = { sender: 'model', text: '' };
+    currentSession.messages.push(modelMessage);
+    saveChatHistoryToDB(); // Save placeholder immediately!
+
+    const geminiChat = getGeminiChat();
+    if (!geminiChat) throw new Error("AI not initialized.");
+
+    const result = await retryOperation(() => geminiChat.sendMessageStream({ 
+        message: [filePart, prompt] 
+    } as any)) as any;
+
+    let responseText = '';
+    modelMessageEl.classList.remove('loading');
+    modelMessageEl.innerHTML = '';
+
+    let lastSaveTime = Date.now();
+    for await (const chunk of result) {
+      responseText += chunk.text || '';
+      modelMessageEl.innerHTML = responseText;
+      modelMessage.text = responseText;
+
+      const now = Date.now();
+      if (now - lastSaveTime > 1500) {
+        saveChatHistoryToDB();
+        lastSaveTime = now;
+      }
+
+      if (shouldScroll) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }
+
+    if (responseText.includes('Generating character sheet...')) {
+      updateLogbookData('sheet');
+    }
+    
+    if (responseText.includes('[CHARACTER_CREATION_COMPLETE]')) {
+        currentSession.creationPhase = 'narrator_selection';
+        const finalSetupText = responseText.replace('[CHARACTER_CREATION_COMPLETE]', '').trim();
+        modelMessageEl.innerHTML = finalSetupText;
+        modelMessage.text = finalSetupText;
+        saveChatHistoryToDB();
+        renderSetupChoices();
+        return;
+    }
+
+    if (responseText.includes('[SETUP_COMPLETE]')) {
+        const titleMatch = responseText.match(/Title:\s*(.*)/);
+        const title = titleMatch?.[1]?.trim() || "New Adventure";
+        const finalSetupText = responseText.replace('[SETUP_COMPLETE]', '').replace(/Title:\s*(.*)/, '').trim();
+        modelMessageEl.innerHTML = finalSetupText;
+        modelMessage.text = finalSetupText;
+        await finalizeSetupAndStartGame(currentSession, title, modelMessage);
     } else {
-      throw new Error(`Unsupported file type: ${file.type}`);
+        modelMessage.text = responseText;
+        saveChatHistoryToDB();
     }
-    
-    // Common logic for adding extracted content to the RAG context
-    const chunkedText = extractedText.length > CHUNK_LIMIT ? extractedText.substring(0, CHUNK_LIMIT) + '...' : extractedText;
-    addUserContext(`Content from ${fileTypeForPrompt} "${file.name}":\n\n${chunkedText}`);
-    
+  } catch (error: any) {
+    console.error("File Upload Error:", error);
     messageEl.classList.remove('loading');
-    messageEl.innerHTML = `<span>✅ File <strong>${file.name}</strong> processed and added to context.</span>`;
-
-  } catch (error) {
-    console.error("File processing failed:", error);
-    let errorMessage = 'An error occurred during processing.';
-    if (error instanceof Error) {
-        errorMessage = error.message;
-        if (error.message.includes('Unsupported file type')) {
-            errorMessage = `Unsupported file type: ${file.type}`;
-        } else if (error.message.includes('API Key') || error.message.includes('API key')) {
-            errorMessage = 'API Key is missing or invalid. Please check your settings in the Logbook.';
-            openModal(logbookModal);
-            const settingsTabBtn = document.querySelector('[data-tab="settings"]') as HTMLElement;
-            if (settingsTabBtn) settingsTabBtn.click();
-        }
+    messageEl.innerHTML = `<span>❌ Error: ${error.message || 'Processing failed.'}</span>`;
+    if (modelMessage) {
+      const msgIndex = currentSession.messages.indexOf(modelMessage);
+      if (msgIndex !== -1) {
+        currentSession.messages.splice(msgIndex, 1);
+        saveChatHistoryToDB();
+      }
     }
-    messageEl.classList.remove('loading');
-    messageEl.innerHTML = `<span>❌ Error processing <strong>${file.name}</strong>. ${errorMessage}</span>`;
+  } finally {
+    setSending(false);
   }
 }
 
@@ -1443,26 +1554,45 @@ function setupEventListeners() {
           if (modelCustomInput) {
             modelCustomInput.style.display = 'block';
             modelCustomInput.focus();
-            getUISettings().activeModel = modelCustomInput.value;
+            const val = modelCustomInput.value.trim();
+            if (val.length > 0) {
+              getUISettings().activeModel = val;
+              dbSet('dm-os-ui-settings', getUISettings());
+              const currentChat = getCurrentChat();
+              if (currentChat) {
+                  loadChat(currentChat.id);
+              }
+            }
           }
         } else {
           if (modelCustomInput) modelCustomInput.style.display = 'none';
           getUISettings().activeModel = modelSelect.value;
-        }
-        dbSet('dm-os-ui-settings', getUISettings());
-        const currentChat = getCurrentChat();
-        if (currentChat) {
-            loadChat(currentChat.id);
+          dbSet('dm-os-ui-settings', getUISettings());
+          const currentChat = getCurrentChat();
+          if (currentChat) {
+              loadChat(currentChat.id);
+          }
         }
       });
   }
   if (modelCustomInput) {
     modelCustomInput.addEventListener('change', () => {
-      getUISettings().activeModel = modelCustomInput.value.trim();
-      dbSet('dm-os-ui-settings', getUISettings());
-      const currentChat = getCurrentChat();
-      if (currentChat) {
-          loadChat(currentChat.id);
+      const val = modelCustomInput.value.trim();
+      if (val.length > 0) {
+        getUISettings().activeModel = val;
+        dbSet('dm-os-ui-settings', getUISettings());
+        const currentChat = getCurrentChat();
+        if (currentChat) {
+            loadChat(currentChat.id);
+        }
+      } else {
+        // Fall back to default instead of crashing on empty input
+        getUISettings().activeModel = 'gemini-2.5-flash';
+        dbSet('dm-os-ui-settings', getUISettings());
+        const currentChat = getCurrentChat();
+        if (currentChat) {
+            loadChat(currentChat.id);
+        }
       }
     });
   }

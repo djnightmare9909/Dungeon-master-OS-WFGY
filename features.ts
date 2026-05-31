@@ -345,7 +345,11 @@ async function generateLogbookSection(section: 'sheet' | 'inventory' | 'quests' 
 
   } catch (error) {
     console.error(`Failed to update ${section}:`, error);
-    alert(`Failed to update ${section}. API Error.`);
+    appendMessage({
+      sender: 'system',
+      text: `[SYSTEM WARNING]: Failed to update Logbook section "${section}" due to an AI or connection error. Please verify your API Key and connection settings in Logbook > Settings.`,
+      hidden: false
+    });
   }
 }
 
@@ -431,7 +435,11 @@ export async function generateCharacterImage() {
 
     } catch (error) {
         console.error("Image generation failed:", error);
-        alert("Failed to generate image. Please try again.");
+        appendMessage({
+          sender: 'system',
+          text: `[SYSTEM WARNING]: Image generation failed to complete. Ensure you are using a valid API key with Image Generation permissions (e.g., a Google key with active billing or access to 'imagen-4.0-generate-001').`,
+          hidden: false
+        });
         characterImagePlaceholder.classList.remove('hidden');
     } finally {
         characterImageLoading.classList.add('hidden');
@@ -628,14 +636,24 @@ export async function handleImportAll(event: Event) {
                 }
                 
                 saveChatHistoryToDB();
-                alert(`Imported ${importedCount} new chats.`);
+                try {
+                    alert(`Imported ${importedCount} new chats.`);
+                } catch (e) {
+                    console.warn("alert() not allowed in iframe, forcing reload directly", e);
+                }
                 window.location.reload(); // Reload to render
                 
             } else if (json.messages && Array.isArray(json.messages)) {
                 // Single chat
                 const existing = getChatHistory().find(c => c.id === json.id);
                 if (existing) {
-                    if (confirm(`Chat "${json.title}" already exists. Overwrite?`)) {
+                    let doOverwrite = true;
+                    try {
+                        doOverwrite = confirm(`Chat "${json.title}" already exists. Overwrite?`);
+                    } catch (e) {
+                        console.warn("confirm() not allowed in iframe sandbox, defaulting to overwrite duplicate chat.", e);
+                    }
+                    if (doOverwrite) {
                         Object.assign(existing, json);
                         saveChatHistoryToDB();
                         window.location.reload();
@@ -651,7 +669,15 @@ export async function handleImportAll(event: Event) {
             
         } catch (err) {
             console.error("Import failed", err);
-            alert("Failed to import file. Invalid JSON.");
+            try {
+                alert("Failed to import file. Invalid JSON.");
+            } catch (e) {
+                appendMessage({
+                    sender: 'system',
+                    text: '[SYSTEM WARNING]: Failed to import file. Invalid JSON pattern.',
+                    hidden: false
+                });
+            }
         }
     };
     

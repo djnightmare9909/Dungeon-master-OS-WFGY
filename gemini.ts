@@ -411,7 +411,7 @@ export function createNewChatInstance(history: { role: 'user' | 'model'; parts: 
   if (instruction !== getNewGameSetupInstruction() && !instruction.includes('backend world simulation engine')) {
     config.tools = [{ googleSearch: {} }];
   }
-  const model = modelOverride || getUISettings().activeModel;
+  const model = modelOverride || getUISettings().activeModel || 'gemini-2.5-flash';
   return ai.chats.create({
     model: model,
     config: config,
@@ -419,13 +419,60 @@ export function createNewChatInstance(history: { role: 'user' | 'model'; parts: 
   });
 }
 
+// In-memory cache for embeddings to prevent redundant API calls and rate-limiting
+const embeddingCache = new Map<string, number[]>();
+
+/**
+ * Computes a deterministic pseudo-random unit vector (768-dim) based on text hash
+ * to serve as consistent fallback when API is unavailable or rate-limited.
+ */
+function getFallbackEmbedding(text: string): number[] {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (hash << 5) - hash + text.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  
+  const vector = new Array(768);
+  let seed = Math.abs(hash) || 123456789;
+  for (let i = 0; i < 768; i++) {
+    // Linear Congruential Generator for deterministic pseudo-random sequence
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    vector[i] = (seed / 4294967296) * 2 - 1; // scale to [-1, 1]
+  }
+  
+  // Normalize vector to unit length
+  let norm = 0;
+  for (let i = 0; i < 768; i++) {
+    norm += vector[i] * vector[i];
+  }
+  norm = Math.sqrt(norm);
+  if (norm > 0) {
+    for (let i = 0; i < 768; i++) {
+      vector[i] /= norm;
+    }
+  }
+  return vector;
+}
+
 /**
  * Generates a vector embedding for a given text using the 'gemini-embedding-2-preview' model.
  * Wraps the call in a retry mechanism to handle 429 Rate Limit errors.
+ * Uses a caching layer and deterministic fallbacks to satisfy strict rate limits.
  * @param text The text to embed.
  * @returns A promise resolving to an array of numbers (the vector).
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
+    const trimmed = text.trim();
+    if (!trimmed) {
+        return new Array(768).fill(0);
+    }
+
+    // 1. Check in-memory cache
+    if (embeddingCache.has(trimmed)) {
+        return embeddingCache.get(trimmed)!;
+    }
+
     const settings = getUISettings();
     const isLocal = (settings.localAiUrl && settings.localAiUrl.trim().length > 0) || settings.providerType !== 'gemini';
 
@@ -441,27 +488,36 @@ export async function generateEmbedding(text: string): Promise<number[]> {
                 headers: getHeaders(),
                 body: JSON.stringify({
                     model: model,
-                    input: text,
+                    input: trimmed,
                 }),
             });
 
             if (response.ok) {
                 const data = await response.json();
-                return data.data?.[0]?.embedding || data.embedding || new Array(768).fill(0);
+                const values = data.data?.[0]?.embedding || data.embedding;
+                if (values && Array.isArray(values) && values.length > 0) {
+                    embeddingCache.set(trimmed, values);
+                    if (embeddingCache.size > 500) {
+                        const firstKey = embeddingCache.keys().next().value;
+                        if (firstKey !== undefined) embeddingCache.delete(firstKey);
+                    }
+                    return values;
+                }
             }
         } catch (e) {
-            console.warn("DM OS: Local embedding failed, falling back to mock.", e);
+            console.warn("DM OS: Local embedding failed, falling back to deterministic embedding.", e);
         }
 
-        return new Array(768).fill(0);
+        return getFallbackEmbedding(trimmed);
     }
 
-    return retryOperation(async () => {
-        try {
+    // Attempt to call Gemini API embedding with aggressive retry, falling back gracefully on failure
+    try {
+        const values = await retryOperation(async () => {
             const response = await ai.models.embedContent({
                 model: 'gemini-embedding-2-preview',
                 contents: {
-                    parts: [{ text }]
+                    parts: [{ text: trimmed }]
                 }
             });
             // SDK response type adjustment
@@ -472,12 +528,22 @@ export async function generateEmbedding(text: string): Promise<number[]> {
             if (respAny.embedding) {
                 return respAny.embedding.values || [];
             }
-        } catch (e) {
-            console.warn("Embedding generation attempt failed:", e);
-            throw e;
+            throw new Error("No embedding values received in response");
+        });
+
+        if (values && values.length > 0) {
+            embeddingCache.set(trimmed, values);
+            if (embeddingCache.size > 500) {
+                const firstKey = embeddingCache.keys().next().value;
+                if (firstKey !== undefined) embeddingCache.delete(firstKey);
+            }
+            return values;
         }
-        return [];
-    });
+    } catch (e) {
+        console.warn("Embedding generation failed, returning deterministic fallback vector to protect API Rate limits:", e);
+    }
+
+    return getFallbackEmbedding(trimmed);
 }
 
 function getSystemInstructionV3(password: string): string {
