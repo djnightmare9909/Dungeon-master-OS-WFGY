@@ -23,7 +23,7 @@ export interface UISettings {
   apiKey: string;
   localAiUrl: string;
   localAiModel: string;
-  systemVersion: '2.0' | '3.0';
+  systemVersion: '2.0' | '3.0' | '4.0';
   engineVariant: 'pro' | 'flash';
   providerType: 'gemini' | 'openai' | 'anthropic' | 'custom';
   customEndpointUrl: string;
@@ -165,7 +165,7 @@ export interface ChatSession {
   factions?: { [id: string]: Faction };
   semanticLog?: SemanticNode[];
   storySummary?: string;
-  systemVersion?: '2.0' | '3.0';
+  systemVersion?: '2.0' | '3.0' | '4.0';
   scarLedger?: Scar[];
   currentVector?: number[];
   prevVector?: number[];
@@ -182,5 +182,5 @@ export interface DMPersona {
   id: string;
   name: string;
   description: string;
-  getInstruction: (password: string, version?: '2.0' | '3.0') => string;
+  getInstruction: (password: string, version?: '2.0' | '3.0' | '4.0') => string;
 }

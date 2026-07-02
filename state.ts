@@ -304,7 +304,7 @@ export function migrateAndValidateSession(session: any): ChatSession {
   }
 
   // System version
-  newSession.systemVersion = session.systemVersion === '3.0' ? '3.0' : '2.0';
+  newSession.systemVersion = (session.systemVersion === '3.0' || session.systemVersion === '4.0') ? session.systemVersion : '2.0';
 
   // Vectors
   newSession.currentVector = Array.isArray(session.currentVector) ? session.currentVector : undefined;

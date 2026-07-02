@@ -1579,9 +1579,10 @@ function setupEventListeners() {
   }
   if (systemVersionSelect) {
     systemVersionSelect.addEventListener('change', () => {
-      const newVersion = systemVersionSelect.value as '2.0' | '3.0';
+      const newVersion = systemVersionSelect.value as '2.0' | '3.0' | '4.0';
       getUISettings().systemVersion = newVersion;
       dbSet('dm-os-ui-settings', getUISettings());
+      applyUISettings();
       
       const currentChat = getCurrentChat();
       if (currentChat) {
