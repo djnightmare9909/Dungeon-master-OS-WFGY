@@ -1,5 +1,7 @@
 a huge shout out to PSbigbig for all your help, be sure to go give him a star on the WFGY main repo
 
+> DM OS isn't trying to replace your D&D table. It's for when your table isn't there. It's a tool, not a replacement. An experience, not a competitor. A place to go when you can't gather the group—not a replacement for gathering the group. It's the solo campaign that lives alongside your main campaign. It's the 'what if' machine. It's the character lab. It's for the nights when you just want to play, and no one's available.
+
 ### 🌐 Play Online
 Play Dungeon Master OS directly in your browser at the official website: [dungeonmasteros.com](https://dungeonmasteros.com/)
 
