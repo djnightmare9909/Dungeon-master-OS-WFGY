@@ -21,7 +21,7 @@ Welcome to the DM OS community! Join our Discord to share your adventures, get h
 
 ### 💖 Support the Project (Tip Jar)
 If you're enjoying DM OS and want to support its continued development, consider leaving a tip! It helps keep the project alive and the caffeine flowing.
-* **PayPal**: [Support Justin Brisson via PayPal](https://paypal.me/JustinBrisson)
+* **PayPal**: [Support Justin Brisson via PayPal](https://paypal.me/justinbrisson1)
 *(Note: If you'd prefer to display the QR code image you shared, you can upload that image file to this repository and link it here!)*
 
 
