@@ -19,6 +19,11 @@ YouTube overview: https://youtu.be/f0dCEIK2l0Q
 ### 🏰 Join the Community
 Welcome to the DM OS community! Join our Discord to share your adventures, get help, and stay updated: [Discord Server](https://discord.gg/JNbvzAuuY)
 
+### 💖 Support the Project (Tip Jar)
+If you're enjoying DM OS and want to support its continued development, consider leaving a tip! It helps keep the project alive and the caffeine flowing.
+* **PayPal**: [Support Justin Brisson via PayPal](https://paypal.me/JustinBrisson)
+*(Note: If you'd prefer to display the QR code image you shared, you can upload that image file to this repository and link it here!)*
+
 
 # ⚠️ IMPORTANT: API KEY REQUIRED FOR INITIAL SETUP
 To use DM OS, you must have a Google AI Studio API key.
