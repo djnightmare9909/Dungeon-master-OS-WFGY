@@ -47,6 +47,7 @@ let uiSettings: UISettings = {
   providerType: 'gemini',
   customEndpointUrl: '',
   customHeaderConfig: '',
+  enableWebSearch: false,
 };
 
 // =================================================================================

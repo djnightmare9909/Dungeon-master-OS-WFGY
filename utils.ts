@@ -253,8 +253,9 @@ export async function retryOperation<T>(operation: () => Promise<T>, maxRetries 
         (error.message && (error.message.includes('429') || error.message.includes('quota') || error.message.includes('Too Many Requests')));
       
       if (isRateLimit) {
-        const delay = baseDelay * Math.pow(2, i);
-        console.warn(`Rate limit hit. Retrying in ${delay}ms... (Attempt ${i + 1}/${maxRetries})`);
+        // Rate-limited (429): wait 2 minutes, doubling the delay each time the same error repeats
+        const delay = 120000 * Math.pow(2, i);
+        console.warn(`Rate limit hit (429). Retrying in ${delay / 1000}s... (Attempt ${i + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -262,4 +263,36 @@ export async function retryOperation<T>(operation: () => Promise<T>, maxRetries 
     }
   }
   throw lastError;
+}
+
+// --- Background AI call throttling ---
+// Background operations (Chronicler world-turns, memory compression, etc.) must
+// never reach AI secuencially with the main AI calls: they wait 65 seconds between each other so
+// interactive DM requests keep the bulk of the API quota. (consider sending the three prompts together in the same LLM call)
+const BACKGROUND_MIN_INTERVAL_MS = 65000;
+let lastBackgroundCallTime = 0;
+let backgroundQueue: Promise<void> = Promise.resolve();
+
+/**
+ * Runs a background AI operation, queued and spaced at least 65 seconds apart
+ * from any other throttled background call (max 1 call per minute).
+ * @param operation A function that returns a promise.
+ */
+export function throttledBackgroundCall<T>(operation: () => Promise<T>): Promise<T> {
+  const run = async (): Promise<T> => {
+    const elapsed = Date.now() - lastBackgroundCallTime;
+    const waitMs = Math.max(0, BACKGROUND_MIN_INTERVAL_MS - elapsed);
+    if (waitMs > 0) {
+      console.log(`Background AI call throttled: waiting ${Math.round(waitMs / 1000)}s...`);
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+    }
+    lastBackgroundCallTime = Date.now();
+    return operation();
+  };
+  const result = backgroundQueue.then(run, run);
+  backgroundQueue = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
 }

@@ -84,6 +84,7 @@ import {
   fontSizeControls,
   enterToSendToggle,
   experimentalUploadToggle,
+  webSearchToggle,
   modelSelect,
   modelCustomInput,
   systemVersionSelect,
@@ -205,7 +206,7 @@ const Yn = () => {
   };
 };
 
-import { retryOperation } from './utils';
+import { retryOperation, throttledBackgroundCall } from './utils';
 // Fix: import UISettings type
 import type { Message, ChatSession, UISettings, GameSettings } from './types';
 
@@ -623,6 +624,7 @@ async function finalizeSetupAndStartGame(session: ChatSession, title: string, fi
   } catch (error) {
     console.error("Failed to start the main game:", error);
     gameLoadingContainer.remove();
+    alert(`Failed to start the main game: ${error instanceof Error ? error.message : String(error)}`);
     appendMessage({ sender: 'error', text: "The world failed to materialize. Please try starting a new game." });
   }
 }
@@ -796,6 +798,7 @@ async function handleFormSubmit(e: Event) {
           } catch (charError) {
             console.error("Quick Start character generation failed:", charError);
             charLoadingContainer.remove();
+            alert(`Quick Start character generation failed: ${charError instanceof Error ? charError.message : String(charError)}`);
             appendMessage({ sender: 'error', text: 'Failed to generate characters. Please try again or choose Guided Setup.' });
           }
           return;
@@ -820,6 +823,7 @@ async function handleFormSubmit(e: Event) {
           currentSession.messages.splice(msgIndex, 1);
           saveChatHistoryToDB();
         }
+        alert(`Setup AI Error: ${error instanceof Error ? error.message : String(error)}`);
         appendMessage({ sender: 'error', text: 'The setup guide seems to have gotten lost. Please try again.' });
       }
       return;
@@ -852,7 +856,8 @@ async function handleFormSubmit(e: Event) {
     const geminiChat = getGeminiChat();
     if (!geminiChat) {
         const errorMessage = "⚠️ AI Connection Lost: To use DM OS, you must have a Google AI Studio API key.\n\n1. Get your key from Google AI Studio (aistudio.google.com).\n2. Open the Logbook (top right), go to Settings, paste your key, and Save.";
-        appendMessage({ sender: 'error', text: errorMessage });
+      alert(errorMessage);
+      appendMessage({ sender: 'error', text: errorMessage });
         setSending(false);
         openModal(logbookModal);
         const settingsTabBtn = document.querySelector('[data-tab="settings"]') as HTMLElement;
@@ -1049,14 +1054,15 @@ async function handleFormSubmit(e: Event) {
 
       if (isWorldTurn && getChroniclerChat()) {
         // This runs in the background and does not block the UI.
-        runChroniclerTurn(userInput).catch(err => {
+        // Throttled: max 1 background AI call per minute (65s spacing).
+        throttledBackgroundCall(() => runChroniclerTurn(userInput)).catch(err => {
             console.error("Caught an error from the background chronicler turn:", err);
         });
       }
 
       // --- MEMORY COMPRESSION TRIGGER ---
       // Periodically summarize old messages to keep the context window clean.
-      pruneAndSummarizeHistory().catch(err => {
+      throttledBackgroundCall(() => pruneAndSummarizeHistory()).catch(err => {
           console.error("Memory compression failed:", err);
       });
 
@@ -1293,6 +1299,7 @@ function setupEventListeners() {
         saveChatHistoryToDB();
       } catch (error) {
         console.error("Error during quick start selection:", error);
+        alert(`Character selection error: ${error instanceof Error ? error.message : String(error)}`);
         appendMessage({ sender: 'error', text: "Something went wrong with character selection. Please try again." });
       } finally {
         setSending(false);
@@ -1340,6 +1347,7 @@ function setupEventListeners() {
 
         } catch(error) {
           console.error("Error after narrator selection:", error);
+          alert(`Narrator selection error: ${error instanceof Error ? error.message : String(error)}`);
           appendMessage({ sender: 'error', text: 'Something went wrong. Please try again.'});
         } finally {
           setSending(false);
@@ -1526,6 +1534,12 @@ function setupEventListeners() {
   if (experimentalUploadToggle) {
       experimentalUploadToggle.addEventListener('change', () => {
         getUISettings().experimentalUploadLimit = experimentalUploadToggle.checked;
+        dbSet('dm-os-ui-settings', getUISettings());
+      });
+  }
+  if (webSearchToggle) {
+      webSearchToggle.addEventListener('change', () => {
+        getUISettings().enableWebSearch = webSearchToggle.checked;
         dbSet('dm-os-ui-settings', getUISettings());
       });
   }

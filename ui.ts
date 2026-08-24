@@ -81,6 +81,7 @@ export const characterImageLoading = document.getElementById('character-image-lo
 export const fontSizeControls = document.getElementById('font-size-controls') as HTMLElement;
 export const enterToSendToggle = document.getElementById('setting-enter-send') as HTMLInputElement;
 export const experimentalUploadToggle = document.getElementById('setting-experimental-upload') as HTMLInputElement;
+export const webSearchToggle = document.getElementById('setting-web-search') as HTMLInputElement;
 export const modelSelect = document.getElementById('setting-model') as HTMLSelectElement;
 export const modelCustomInput = document.getElementById('setting-model-custom') as HTMLInputElement;
 export const systemVersionSelect = document.getElementById('setting-system-version') as HTMLSelectElement;
@@ -155,6 +156,9 @@ export function applyUISettings() {
   }
   if (experimentalUploadToggle) {
     experimentalUploadToggle.checked = uiSettings.experimentalUploadLimit;
+  }
+  if (webSearchToggle) {
+    webSearchToggle.checked = !!uiSettings.enableWebSearch;
   }
   if (modelSelect) {
     const options = Array.from(modelSelect.options).map(o => o.value);

@@ -28,6 +28,7 @@ export interface UISettings {
   providerType: 'gemini' | 'openai' | 'anthropic' | 'custom';
   customEndpointUrl: string;
   customHeaderConfig: string;
+  enableWebSearch: boolean;
 }
 
 export interface AbilityScore {
