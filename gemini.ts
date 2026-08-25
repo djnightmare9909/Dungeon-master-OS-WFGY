@@ -410,7 +410,9 @@ export function createNewChatInstance(history: { role: 'user' | 'model'; parts: 
     systemInstruction: instruction,
     temperature: 0.9,
   };
-  if (instruction !== getNewGameSetupInstruction() && !instruction.includes('backend world simulation engine')) {
+  // Google Search grounding consumes a separate, limited free-tier quota.
+  // Only attach the tool when explicitly enabled in Settings (default: off).
+  if (getUISettings().enableWebSearch && instruction !== getNewGameSetupInstruction() && !instruction.includes('backend world simulation engine')) {
     config.tools = [{ googleSearch: {} }];
   }
 
