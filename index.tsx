@@ -131,6 +131,14 @@ import {
   contextHeader,
   renderLogbookTree,
   initGyroscope,
+  ttsEnabledToggle,
+  ttsVoiceSelect,
+  ttsRateInput,
+  ttsRateValue,
+  ttsPitchInput,
+  ttsPitchValue,
+  ttsTestBtn,
+  populateTtsVoices,
 } from './ui';
 import {
   addUserContext,
@@ -207,6 +215,7 @@ const Yn = () => {
 };
 
 import { retryOperation, throttledBackgroundCall } from './utils';
+import { speakModelMessage, stopSpeaking, testTts, refreshVoices } from './tts';
 // Fix: import UISettings type
 import type { Message, ChatSession, UISettings, GameSettings } from './types';
 
@@ -618,6 +627,7 @@ async function finalizeSetupAndStartGame(session: ChatSession, title: string, fi
       openingSceneMessage.text = openingSceneText;
       appendMessage(openingSceneMessage);
       saveChatHistoryToDB();
+      speakModelMessage(openingSceneText);
     } else {
       gameLoadingContainer.remove();
     }
@@ -642,6 +652,7 @@ async function handleFormSubmit(e: Event) {
     const userInput = chatInput.value.trim();
     const currentSession = getCurrentChat();
     if (!userInput || !currentSession) return;
+    stopSpeaking();
 
     const lowerCaseInput = userInput.toLowerCase().replace(/[?]/g, '');
 
@@ -743,6 +754,7 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.innerHTML = setupMessageText;
           modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
+          speakModelMessage(setupMessageText);
           return;
         }
 
@@ -752,6 +764,7 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.innerHTML = setupMessageText;
           modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
+          speakModelMessage(setupMessageText);
           return;
         }
 
@@ -762,6 +775,7 @@ async function handleFormSubmit(e: Event) {
             modelMessage.text = setupMessageText;
             saveChatHistoryToDB();
             renderSetupChoices();
+            speakModelMessage(setupMessageText);
             return;
         }
 
@@ -772,6 +786,7 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.innerHTML = setupMessageText;
           modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
+          speakModelMessage(setupMessageText);
 
           const charLoadingContainer = appendMessage({ sender: 'model', text: '' });
           const charLoadingMessage = charLoadingContainer.querySelector('.message') as HTMLElement;
@@ -811,9 +826,11 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.innerHTML = finalSetupText;
           modelMessage.text = finalSetupText;
           await finalizeSetupAndStartGame(currentSession, title, modelMessage);
+          speakModelMessage(finalSetupText);
         } else {
           modelMessage.text = responseText;
           saveChatHistoryToDB();
+          speakModelMessage(responseText);
         }
       } catch (error) {
         console.error("Setup AI Error:", error);
@@ -983,6 +1000,7 @@ async function handleFormSubmit(e: Event) {
             modelMessageEl.innerHTML = responseText;
             modelMessage.text = responseText;
             saveChatHistoryToDB();
+            speakModelMessage(responseText);
             break;
           }
           // The interceptor already pushed a [WFGY COLLAPSE] message to session.history
@@ -1030,6 +1048,7 @@ async function handleFormSubmit(e: Event) {
 
       modelMessage.text = responseText.replace(combatStatusRegex, '').replace(logbookUpdateRegex, '').trim();
       saveChatHistoryToDB();
+      speakModelMessage(modelMessage.text);
       
       // --- WFGY AUDIT TRIGGER ---
       (async () => {
@@ -1208,6 +1227,7 @@ async function handleFileUpload(event: Event) {
         modelMessage.text = finalSetupText;
         saveChatHistoryToDB();
         renderSetupChoices();
+        speakModelMessage(finalSetupText);
         return;
     }
 
@@ -1218,9 +1238,11 @@ async function handleFileUpload(event: Event) {
         modelMessageEl.innerHTML = finalSetupText;
         modelMessage.text = finalSetupText;
         await finalizeSetupAndStartGame(currentSession, title, modelMessage);
+        speakModelMessage(finalSetupText);
     } else {
         modelMessage.text = responseText;
         saveChatHistoryToDB();
+        speakModelMessage(responseText);
     }
   } catch (error: any) {
     console.error("File Upload Error:", error);
@@ -1542,6 +1564,48 @@ function setupEventListeners() {
         getUISettings().enableWebSearch = webSearchToggle.checked;
         dbSet('dm-os-ui-settings', getUISettings());
       });
+  }
+  if (ttsEnabledToggle) {
+      ttsEnabledToggle.addEventListener('change', () => {
+        getUISettings().ttsEnabled = ttsEnabledToggle.checked;
+        dbSet('dm-os-ui-settings', getUISettings());
+        if (!ttsEnabledToggle.checked) stopSpeaking();
+      });
+  }
+  if (ttsVoiceSelect) {
+      ttsVoiceSelect.addEventListener('change', () => {
+        getUISettings().ttsVoiceURI = ttsVoiceSelect.value;
+        dbSet('dm-os-ui-settings', getUISettings());
+      });
+  }
+  if (ttsRateInput) {
+      ttsRateInput.addEventListener('input', () => {
+        const rate = parseFloat(ttsRateInput.value) || 1;
+        getUISettings().ttsRate = rate;
+        if (ttsRateValue) ttsRateValue.textContent = String(rate);
+        dbSet('dm-os-ui-settings', getUISettings());
+      });
+  }
+  if (ttsPitchInput) {
+      ttsPitchInput.addEventListener('input', () => {
+        const pitch = parseFloat(ttsPitchInput.value) || 1;
+        getUISettings().ttsPitch = pitch;
+        if (ttsPitchValue) ttsPitchValue.textContent = String(pitch);
+        dbSet('dm-os-ui-settings', getUISettings());
+      });
+  }
+  if (ttsTestBtn) {
+      ttsTestBtn.addEventListener('click', () => testTts());
+  }
+  // Populate TTS voices once available (Chrome loads them asynchronously).
+  const populateVoices = () => {
+    if (ttsVoiceSelect) {
+      populateTtsVoices(ttsVoiceSelect, getUISettings().ttsVoiceURI || '');
+    }
+  };
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = populateVoices;
+    populateVoices();
   }
   if (modelSelect) {
       modelSelect.addEventListener('change', () => {

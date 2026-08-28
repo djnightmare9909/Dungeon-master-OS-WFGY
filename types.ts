@@ -29,6 +29,10 @@ export interface UISettings {
   customEndpointUrl: string;
   customHeaderConfig: string;
   enableWebSearch: boolean;
+  ttsEnabled: boolean;
+  ttsVoiceURI: string;
+  ttsRate: number;
+  ttsPitch: number;
 }
 
 export interface AbilityScore {

@@ -48,6 +48,10 @@ let uiSettings: UISettings = {
   customEndpointUrl: '',
   customHeaderConfig: '',
   enableWebSearch: false,
+  ttsEnabled: false,
+  ttsVoiceURI: '',
+  ttsRate: 1,
+  ttsPitch: 1,
 };
 
 // =================================================================================
