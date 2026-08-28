@@ -1526,6 +1526,38 @@ main {
   width: 100%;
 }
 
+.message-tts-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-top: 0.4rem;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary-color);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.message-tts-btn:hover,
+.message-tts-btn:focus-visible {
+  opacity: 1;
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  outline: none;
+}
+
+.message-tts-btn.active {
+  opacity: 1;
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
 .message.loading {
     display: inline-block;
     padding: 0.75rem 1rem;
