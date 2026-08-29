@@ -12,6 +12,13 @@ import type { PlaybackState } from './tts';
 
 const PLAY_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
 const PAUSE_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+const RETRY_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg>';
+
+// Retry handler registered by index.tsx (truncates later messages and re-sends to the LLM).
+let retryHandler: ((message: Message) => void) | null = null;
+export function onRetryMessage(fn: (message: Message) => void) {
+  retryHandler = fn;
+}
 
 // =================================================================================
 // DOM ELEMENT SELECTORS
@@ -325,10 +332,25 @@ export function appendMessage(message: Message, container: HTMLElement = chatCon
   if (!container) return document.createElement('div'); // dummy return if container missing
 
   if (message.sender === 'user') {
+    const msgContainer = document.createElement('div');
+    msgContainer.className = 'message-user-container';
+
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', 'user');
     messageElement.textContent = message.text;
-    container.appendChild(messageElement);
+    msgContainer.appendChild(messageElement);
+
+    // Retry button: remove later messages and send this one again
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'message-retry-btn';
+    retryBtn.title = 'Retry: remove later messages and send again';
+    retryBtn.setAttribute('aria-label', 'Retry this message');
+    retryBtn.innerHTML = RETRY_ICON;
+    retryBtn.addEventListener('click', () => retryHandler?.(message));
+    msgContainer.appendChild(retryBtn);
+
+    (msgContainer as any)._msg = message;
+    container.appendChild(msgContainer);
   } else if (message.sender === 'system') {
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', 'system-roll');
@@ -363,6 +385,18 @@ export function appendMessage(message: Message, container: HTMLElement = chatCon
     });
     msgContainer.appendChild(ttsBtn);
 
+    // Retry button for DM messages: remove this message and later ones, then re-send
+    if (message.sender === 'model') {
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'message-retry-btn';
+      retryBtn.title = 'Retry: remove later messages and send again';
+      retryBtn.setAttribute('aria-label', 'Retry this message');
+      retryBtn.innerHTML = RETRY_ICON;
+      retryBtn.addEventListener('click', () => retryHandler?.(message));
+      msgContainer.appendChild(retryBtn);
+    }
+
+    (msgContainer as any)._msg = message;
     container.appendChild(msgContainer);
   }
 

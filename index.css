@@ -1510,6 +1510,20 @@ main {
   border-bottom-right-radius: 4px;
 }
 
+.message-user-container {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  max-width: 85%;
+  align-self: flex-end;
+}
+
+.message-user-container .message.user {
+  align-self: flex-start;
+}
+
 .message-model-container {
   display: flex;
   flex-direction: row;
@@ -1556,6 +1570,32 @@ main {
   opacity: 1;
   color: var(--accent-color);
   border-color: var(--accent-color);
+}
+
+.message-retry-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-top: 0.4rem;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary-color);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.message-retry-btn:hover,
+.message-retry-btn:focus-visible {
+  opacity: 1;
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  outline: none;
 }
 
 .message.loading {

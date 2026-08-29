@@ -139,6 +139,7 @@ import {
   ttsPitchValue,
   ttsTestBtn,
   populateTtsVoices,
+  onRetryMessage,
 } from './ui';
 import {
   addUserContext,
@@ -1285,6 +1286,49 @@ function setupEventListeners() {
   
   chatForm.addEventListener('submit', handleFormSubmit);
   if(sendButton) sendButton.addEventListener('click', handleFormSubmit);
+
+  // Retry button on chat messages: truncate later messages and re-send to the LLM.
+  onRetryMessage(async (msg) => {
+    const currentSession = getCurrentChat();
+    if (!currentSession || isSending()) return;
+    stopSpeaking();
+
+    const idx = currentSession.messages.indexOf(msg);
+    if (idx === -1) return;
+
+    let resendText: string | null = null;
+    if (msg.sender === 'user') {
+      const later = currentSession.messages.length - 1 - idx;
+      if (later > 0) {
+        const ok = window.confirm(`Retry will delete ${later} later message${later === 1 ? '' : 's'} and re-send this message. Continue?`);
+        if (!ok) return;
+      }
+      // Re-send this user message; drop everything after it.
+      resendText = msg.text;
+      currentSession.messages.splice(idx + 1);
+    } else if (msg.sender === 'model') {
+      let userIdx = idx - 1;
+      while (userIdx >= 0 && currentSession.messages[userIdx].sender !== 'user') userIdx--;
+      if (userIdx < 0) return;
+      const later = currentSession.messages.length - 1 - idx;
+      if (later > 0) {
+        const ok = window.confirm(`Retry will delete this message and ${later} later message${later === 1 ? '' : 's'}, then re-send your previous message. Continue?`);
+        if (!ok) return;
+      }
+      // Re-send the preceding user message; drop this response and everything after it.
+      resendText = currentSession.messages[userIdx].text;
+      currentSession.messages.splice(idx);
+    } else {
+      return;
+    }
+
+    renderMessages(currentSession.messages);
+    saveChatHistoryToDB();
+
+    chatInput.value = resendText;
+    chatInput.style.height = 'auto';
+    await handleFormSubmit(new Event('submit', { cancelable: true }));
+  });
 
   chatInput.addEventListener('focus', () => {
     setTimeout(() => {
