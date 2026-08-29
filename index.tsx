@@ -461,8 +461,8 @@ function loadChat(id: string, force = false) {
         const version = session.systemVersion || '2.0';
         const instruction = persona.getInstruction(session.adminPassword || '', version);
         setGeminiChat(createNewChatInstance(geminiHistory, instruction));
-        // Initialize chronicler for existing games. Explicitly use 'gemini-2.5-flash' for cost/speed.
-        setChroniclerChat(createNewChatInstance([], getChroniclerPrompt(), 'gemini-2.5-flash'));
+        // Initialize chronicler for existing games. Explicitly use 'gemini-3.5-flash-lite' for cost/speed.
+        setChroniclerChat(createNewChatInstance([], getChroniclerPrompt(), 'gemini-3.5-flash-lite'));
       }
     } catch (error: any) {
       console.error('Failed to create Gemini chat instance:', error);
@@ -600,8 +600,8 @@ async function finalizeSetupAndStartGame(session: ChatSession, title: string, fi
       }));
 
     setGeminiChat(createNewChatInstance(geminiHistory, instruction));
-    // Initialize the Chronicler AI for the main game. Explicitly use 'gemini-2.5-flash' for cost/speed.
-    setChroniclerChat(createNewChatInstance([], getChroniclerPrompt(), 'gemini-2.5-flash'));
+    // Initialize the Chronicler AI for the main game. Explicitly use 'gemini-3.5-flash-lite' for cost/speed.
+    setChroniclerChat(createNewChatInstance([], getChroniclerPrompt(), 'gemini-3.5-flash-lite'));
 
     if (!finalSetupMessage) {
       const kickoffResult = await retryOperation(() => getGeminiChat()!.sendMessageStream({ message: "The setup is complete. Begin the adventure by narrating the opening scene." }), 3, 2000, (info) => {
@@ -1713,7 +1713,7 @@ function setupEventListeners() {
         }
       } else {
         // Fall back to default instead of crashing on empty input
-        getUISettings().activeModel = 'gemini-2.5-flash';
+        getUISettings().activeModel = 'gemini-3.5-flash-lite';
         dbSet('dm-os-ui-settings', getUISettings());
         const currentChat = getCurrentChat();
         if (currentChat) {

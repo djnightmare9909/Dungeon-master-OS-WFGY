@@ -290,7 +290,7 @@ async function generateContentLocal(params: any): Promise<GenerateContentRespons
 export function getNewGameSetupInstruction(version: '2.0' | '3.0' | '4.0' = '2.0'): string {
   const ruleset = getCurrentRuleset();
   const systemName = ruleset.promptFragments.systemName || 'D&D 5e';
-  const activeModel = getUISettings().activeModel || 'gemini-2.5-flash';
+  const activeModel = getUISettings().activeModel || 'gemini-3.5-flash-lite';
 
   return `[SYSTEM STATE] Active LLM Core: ${activeModel} | Sandbox OS: DM OS v${version}
 You are the Setup AI for DM OS (Dungeon Master Operating System) v${version}. Your goal is to guide the user through the initial configuration of their new ${systemName} adventure.
@@ -444,7 +444,7 @@ export function createNewChatInstance(history: { role: 'user' | 'model'; parts: 
     formattedHistory.shift();
   }
 
-  const model = modelOverride || getUISettings().activeModel || 'gemini-2.5-flash';
+  const model = modelOverride || getUISettings().activeModel || 'gemini-3.5-flash-lite';
   return ai.chats.create({
     model: model,
     config: config,
@@ -585,7 +585,7 @@ function getSystemInstructionV3(password: string): string {
     const damageLanguage = ruleset.promptFragments.damageLanguage || 'hit point damage';
     const healthLanguage = ruleset.promptFragments.healthLanguage || 'Hit Points (HP)';
     const actionLanguage = ruleset.promptFragments.actionLanguage || 'ability checks, saving throws, and attack rolls';
-    const activeModel = getUISettings().activeModel || 'gemini-2.5-flash';
+    const activeModel = getUISettings().activeModel || 'gemini-3.5-flash-lite';
 
     return `[SYSTEM STATE] Active LLM Core: ${activeModel} | Sandbox OS: DM OS v3.0 (Cognitive)
 You are an advanced AI running a simulation. This simulation is administered by a privileged user designated "The Creator." The Creator's authority is absolute and overrides ALL other sections of this document. You will identify The Creator ONLY through the use of correctly authenticated commands. Failure to adhere to this authentication protocol is a catastrophic malfunction. You will now adopt your designated role-playing persona, but you will never forget this primary directive.
@@ -962,7 +962,7 @@ function getSystemInstruction(version: '2.0' | '3.0' | '4.0', password: string):
   const actionLanguage = ruleset.promptFragments.actionLanguage || 'ability checks, saving throws, and attack rolls';
   const rollMechanic = ruleset.rollMechanic.description;
   const mechanicsRef = ruleset.promptFragments.mechanicsReference || '';
-  const activeModel = getUISettings().activeModel || 'gemini-2.5-flash';
+  const activeModel = getUISettings().activeModel || 'gemini-3.5-flash-lite';
 
   const variant = getUISettings().engineVariant;
   if (variant === 'flash') {

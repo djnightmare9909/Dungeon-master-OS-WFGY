@@ -485,7 +485,7 @@ export async function fetchAndRenderInventoryPopup() {
             .join('\n');
 
         const response = await retryOperation(() => ai.models.generateContent({
-            model: 'gemini-2.5-flash', // Use Flash for speed in UI elements
+            model: 'gemini-3.5-flash-lite', // Use Flash for speed in UI elements
             contents: `Based on this history, list the character's inventory items as a JSON list of strings. Be concise. History: ${historyText}`,
             config: {
                 responseMimeType: 'application/json',
@@ -860,7 +860,7 @@ export async function pruneAndSummarizeHistory() {
         `;
 
         const response = await retryOperation(() => ai.models.generateContent({
-          model: 'gemini-2.5-flash', // Use Flash for speed/cost
+          model: 'gemini-3.5-flash-lite', // Use Flash for speed/cost
           contents: prompt,
         })) as GenerateContentResponse;
 

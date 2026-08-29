@@ -38,7 +38,7 @@ let uiSettings: UISettings = {
   enterToSend: true,
   fontSize: 'medium',
   experimentalUploadLimit: false,
-  activeModel: 'gemini-2.5-flash',
+  activeModel: 'gemini-3.5-flash-lite',
   apiKey: '',
   localAiUrl: '',
   localAiModel: '',
