@@ -215,7 +215,14 @@ const Yn = () => {
 };
 
 import { retryOperation, throttledBackgroundCall } from './utils';
+import type { RetryInfo } from './utils';
 import { speakModelMessage, stopSpeaking, testTts, refreshVoices } from './tts';
+
+/** Formats a retry status line for the loading message: "Error: x. Retrying in Ns... (retry y/z)" */
+function formatRetryStatus(info: RetryInfo): string {
+  const err = info.error.length > 80 ? info.error.substring(0, 80) + '…' : info.error;
+  return `Error: ${err}. Retrying in ${Math.ceil(info.delayMs / 1000)}s... (retry ${info.attempt}/${info.maxRetries})`;
+}
 // Fix: import UISettings type
 import type { Message, ChatSession, UISettings, GameSettings } from './types';
 
@@ -596,7 +603,9 @@ async function finalizeSetupAndStartGame(session: ChatSession, title: string, fi
     setChroniclerChat(createNewChatInstance([], getChroniclerPrompt(), 'gemini-2.5-flash'));
 
     if (!finalSetupMessage) {
-      const kickoffResult = await retryOperation(() => getGeminiChat()!.sendMessageStream({ message: "The setup is complete. Begin the adventure by narrating the opening scene." })) as any;
+      const kickoffResult = await retryOperation(() => getGeminiChat()!.sendMessageStream({ message: "The setup is complete. Begin the adventure by narrating the opening scene." }), 3, 2000, (info) => {
+        gameLoadingMessage.textContent = formatRetryStatus(info);
+      }) as any;
 
       let openingSceneText = '';
       gameLoadingMessage.classList.remove('loading');
@@ -722,7 +731,9 @@ async function handleFormSubmit(e: Event) {
           messageToSend = `I've chosen the ${personaName} with a ${tone} tone and ${narration} narration. Now, let's create the world.`;
         }
 
-        const result = await retryOperation(() => geminiChat.sendMessageStream({ message: messageToSend })) as any;
+        const result = await retryOperation(() => geminiChat.sendMessageStream({ message: messageToSend }), 3, 2000, (info) => {
+          modelMessageEl.textContent = formatRetryStatus(info);
+        }) as any;
         let responseText = '';
         modelMessageEl.classList.remove('loading');
         modelMessageEl.innerHTML = '';
@@ -804,7 +815,9 @@ async function handleFormSubmit(e: Event) {
                   items: quickStartCharacterSchema,
                 },
               }
-            })) as GenerateContentResponse;
+            }), 3, 2000, (info) => {
+              charLoadingMessage.textContent = formatRetryStatus(info);
+            }) as GenerateContentResponse;
             const chars = JSON.parse(charResponse.text || '[]');
             currentSession.quickStartChars = chars;
             saveChatHistoryToDB();
@@ -956,7 +969,9 @@ async function handleFormSubmit(e: Event) {
           const currentChat = createNewChatInstance(geminiHistory, instruction);
           setGeminiChat(currentChat);
 
-          const result = await retryOperation(() => currentChat.sendMessageStream({ message: attempts === 0 ? messageWithContext : "Please regenerate your last response correctly." })) as any;
+          const result = await retryOperation(() => currentChat.sendMessageStream({ message: attempts === 0 ? messageWithContext : "Please regenerate your last response correctly." }), 3, 2000, (info) => {
+            modelMessageEl.textContent = formatRetryStatus(info);
+          }) as any;
           
           modelMessageEl.classList.remove('loading');
           modelMessageEl.innerHTML = '';
@@ -1193,7 +1208,9 @@ async function handleFileUpload(event: Event) {
 
     const result = await retryOperation(() => geminiChat.sendMessageStream({ 
         message: [filePart, prompt] 
-    } as any)) as any;
+    } as any), 3, 2000, (info) => {
+      modelMessageEl.textContent = formatRetryStatus(info);
+    }) as any;
 
     let responseText = '';
     modelMessageEl.classList.remove('loading');

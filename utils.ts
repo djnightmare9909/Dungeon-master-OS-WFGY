@@ -238,8 +238,31 @@ export function updateVectorBBPF(
  * @param operation A function that returns a promise.
  * @param maxRetries Maximum number of retries.
  * @param baseDelay Base delay in milliseconds.
+ * @param onRetry Optional callback fired before each retry wait (for UI feedback).
  */
-export async function retryOperation<T>(operation: () => Promise<T>, maxRetries = 3, baseDelay = 2000): Promise<T> {
+export interface RetryInfo {
+  error: string;
+  delayMs: number;
+  attempt: number; // 1-based attempt number that failed
+  maxRetries: number;
+}
+
+/** Extracts a readable error message, unwrapping Gemini's JSON error envelope if present. */
+function extractErrorMessage(error: any): string {
+  const raw = error?.message ? String(error.message) : String(error);
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.error?.message) return String(parsed.error.message);
+  } catch { /* not JSON — use raw */ }
+  return raw;
+}
+
+export async function retryOperation<T>(
+  operation: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 2000,
+  onRetry?: (info: RetryInfo) => void
+): Promise<T> {
   let lastError: any;
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -255,7 +278,9 @@ export async function retryOperation<T>(operation: () => Promise<T>, maxRetries 
       if (isRateLimit) {
         // Rate-limited (429): wait 2 minutes, doubling the delay each time the same error repeats
         const delay = 120000 * Math.pow(2, i);
+        const errMsg = extractErrorMessage(error);
         console.warn(`Rate limit hit (429). Retrying in ${delay / 1000}s... (Attempt ${i + 1}/${maxRetries})`);
+        if (onRetry) onRetry({ error: errMsg, delayMs: delay, attempt: i + 1, maxRetries });
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
