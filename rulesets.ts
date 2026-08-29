@@ -7,7 +7,7 @@ export const DND_5E_RULESET: Ruleset = {
   statBlock: {
     primaryStats: ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'],
     resources: ['hitPoints'],
-    derivedStats: ['armorClass', 'speed', 'level', 'initiative'],
+    derivedStats: ['armorClass', 'speed', 'level', 'initiative', 'experiencePoints'],
   },
   rollMechanic: {
     type: 'd20',

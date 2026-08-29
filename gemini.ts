@@ -934,6 +934,11 @@ sourcebook.
 damage tracking calculated by external client-side scripts. Do not
 attempt multi-step arithmetic estimations; defer blindly to
 client-side math inputs.
+- EXPERIENCE POINTS (XP): Award XP per D&D 5e rules for defeated
+enemies and completed quests, and announce the amount gained. The
+running total is persisted in the character sheet's
+\`experiencePoints\` field, which the player can refresh via the
+Logbook's "Request Update from DM" button.
 
 ======================================================================
 ==================

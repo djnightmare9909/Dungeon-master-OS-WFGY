@@ -456,6 +456,15 @@ export function renderSetupChoices() {
   currentSession.messages.push(choiceMessage);
 }
 
+/** Friendly display labels for derived stats (falls back to the raw key). */
+const DERIVED_STAT_LABELS: Record<string, string> = {
+  armorClass: 'Armor Class',
+  speed: 'Speed',
+  level: 'Level',
+  initiative: 'Initiative',
+  experiencePoints: 'Experience Points',
+};
+
 export function renderCharacterSheet(data: CharacterSheetData) {
   if (!characterSheetDisplay) return;
 
@@ -484,7 +493,7 @@ export function renderCharacterSheet(data: CharacterSheetData) {
     .join('\n');
 
   const derivedStatsMd = Object.entries(stats.derivedStats || {})
-    .map(([name, val]) => `- **${name}:** ${val}`)
+    .map(([name, val]) => `- **${DERIVED_STAT_LABELS[name] || name}:** ${val}`)
     .join('\n');
 
   const skillsMd = (data.skills || [])
