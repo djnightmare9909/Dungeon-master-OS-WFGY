@@ -698,6 +698,7 @@ async function handleFormSubmit(e: Event) {
         currentSession.adminPassword = userInput;
         saveChatHistoryToDB();
         await finalizeSetupAndStartGame(currentSession, currentSession.title);
+        setSending(false);
         return;
       }
 
@@ -767,6 +768,7 @@ async function handleFormSubmit(e: Event) {
           modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
           speakModelMessage(setupMessageText);
+          setSending(false);
           return;
         }
 
@@ -777,6 +779,7 @@ async function handleFormSubmit(e: Event) {
           modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
           speakModelMessage(setupMessageText);
+          setSending(false);
           return;
         }
 
@@ -788,6 +791,7 @@ async function handleFormSubmit(e: Event) {
             saveChatHistoryToDB();
             renderSetupChoices();
             speakModelMessage(setupMessageText);
+            setSending(false);
             return;
         }
 
@@ -830,6 +834,7 @@ async function handleFormSubmit(e: Event) {
             alert(`Quick Start character generation failed: ${charError instanceof Error ? charError.message : String(charError)}`);
             appendMessage({ sender: 'error', text: 'Failed to generate characters. Please try again or choose Guided Setup.' });
           }
+          setSending(false);
           return;
         }
 
@@ -857,6 +862,7 @@ async function handleFormSubmit(e: Event) {
         alert(`Setup AI Error: ${error instanceof Error ? error.message : String(error)}`);
         appendMessage({ sender: 'error', text: 'The setup guide seems to have gotten lost. Please try again.' });
       }
+      setSending(false);
       return;
     }
 
