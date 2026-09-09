@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
         }
       },
       server: {
-        port: 3000,
+        port: 3005,
         host: '0.0.0.0',
       },
       plugins: [],
