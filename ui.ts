@@ -7,6 +7,18 @@ import { marked } from 'marked';
 import { getChatHistory, getCurrentChat, getUISettings, dbSet, getCurrentRuleset } from './state';
 import type { Message, ChatSession, CharacterSheetData, Achievement, NPCState } from './types';
 import { dmPersonas, resetAI } from './gemini';
+import { getAvailableVoices, onPlaybackChange, togglePlayPause } from './tts';
+import type { PlaybackState } from './tts';
+
+const PLAY_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
+const PAUSE_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+const RETRY_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg>';
+
+// Retry handler registered by index.tsx (truncates later messages and re-sends to the LLM).
+let retryHandler: ((message: Message) => void) | null = null;
+export function onRetryMessage(fn: (message: Message) => void) {
+  retryHandler = fn;
+}
 
 // =================================================================================
 // DOM ELEMENT SELECTORS
@@ -82,6 +94,13 @@ export const fontSizeControls = document.getElementById('font-size-controls') as
 export const enterToSendToggle = document.getElementById('setting-enter-send') as HTMLInputElement;
 export const experimentalUploadToggle = document.getElementById('setting-experimental-upload') as HTMLInputElement;
 export const webSearchToggle = document.getElementById('setting-web-search') as HTMLInputElement;
+export const ttsEnabledToggle = document.getElementById('setting-tts-enabled') as HTMLInputElement;
+export const ttsVoiceSelect = document.getElementById('setting-tts-voice') as HTMLSelectElement;
+export const ttsRateInput = document.getElementById('setting-tts-rate') as HTMLInputElement;
+export const ttsRateValue = document.getElementById('setting-tts-rate-value') as HTMLElement;
+export const ttsPitchInput = document.getElementById('setting-tts-pitch') as HTMLInputElement;
+export const ttsPitchValue = document.getElementById('setting-tts-pitch-value') as HTMLElement;
+export const ttsTestBtn = document.getElementById('setting-tts-test') as HTMLButtonElement;
 export const modelSelect = document.getElementById('setting-model') as HTMLSelectElement;
 export const modelCustomInput = document.getElementById('setting-model-custom') as HTMLInputElement;
 export const systemVersionSelect = document.getElementById('setting-system-version') as HTMLSelectElement;
@@ -159,6 +178,24 @@ export function applyUISettings() {
   }
   if (webSearchToggle) {
     webSearchToggle.checked = !!uiSettings.enableWebSearch;
+  }
+  if (ttsEnabledToggle) {
+    ttsEnabledToggle.checked = !!uiSettings.ttsEnabled;
+  }
+  if (ttsRateInput) {
+    ttsRateInput.value = String(uiSettings.ttsRate ?? 1);
+  }
+  if (ttsRateValue) {
+    ttsRateValue.textContent = String(uiSettings.ttsRate ?? 1);
+  }
+  if (ttsPitchInput) {
+    ttsPitchInput.value = String(uiSettings.ttsPitch ?? 1);
+  }
+  if (ttsPitchValue) {
+    ttsPitchValue.textContent = String(uiSettings.ttsPitch ?? 1);
+  }
+  if (ttsVoiceSelect) {
+    populateTtsVoices(ttsVoiceSelect, uiSettings.ttsVoiceURI || '');
   }
   if (modelSelect) {
     const options = Array.from(modelSelect.options).map(o => o.value);
@@ -295,10 +332,25 @@ export function appendMessage(message: Message, container: HTMLElement = chatCon
   if (!container) return document.createElement('div'); // dummy return if container missing
 
   if (message.sender === 'user') {
+    const msgContainer = document.createElement('div');
+    msgContainer.className = 'message-user-container';
+
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', 'user');
     messageElement.textContent = message.text;
-    container.appendChild(messageElement);
+    msgContainer.appendChild(messageElement);
+
+    // Retry button: remove later messages and send this one again
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'message-retry-btn';
+    retryBtn.title = 'Retry: remove later messages and send again';
+    retryBtn.setAttribute('aria-label', 'Retry this message');
+    retryBtn.innerHTML = RETRY_ICON;
+    retryBtn.addEventListener('click', () => retryHandler?.(message));
+    msgContainer.appendChild(retryBtn);
+
+    (msgContainer as any)._msg = message;
+    container.appendChild(msgContainer);
   } else if (message.sender === 'system') {
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', 'system-roll');
@@ -313,6 +365,38 @@ export function appendMessage(message: Message, container: HTMLElement = chatCon
     messageElement.innerHTML = message.text;
     msgContainer.appendChild(messageElement);
 
+    // TTS play/pause button for DM messages
+    const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    messageElement.dataset.msgId = msgId;
+    const ttsBtn = document.createElement('button');
+    ttsBtn.className = 'message-tts-btn';
+    ttsBtn.title = 'Play / pause audio';
+    ttsBtn.setAttribute('aria-label', 'Play or pause message audio');
+    ttsBtn.innerHTML = PLAY_ICON;
+    const updateBtn = (state: PlaybackState) => {
+      ttsBtn.innerHTML = state === 'paused' ? PLAY_ICON : PAUSE_ICON;
+      ttsBtn.classList.toggle('active', state !== 'idle');
+    };
+    ttsBtn.addEventListener('click', () => {
+      updateBtn(togglePlayPause(message.text, msgId));
+    });
+    onPlaybackChange((mid, state) => {
+      if (mid === msgId) updateBtn(state);
+    });
+    msgContainer.appendChild(ttsBtn);
+
+    // Retry button for DM messages: remove this message and later ones, then re-send
+    if (message.sender === 'model') {
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'message-retry-btn';
+      retryBtn.title = 'Retry: remove later messages and send again';
+      retryBtn.setAttribute('aria-label', 'Retry this message');
+      retryBtn.innerHTML = RETRY_ICON;
+      retryBtn.addEventListener('click', () => retryHandler?.(message));
+      msgContainer.appendChild(retryBtn);
+    }
+
+    (msgContainer as any)._msg = message;
     container.appendChild(msgContainer);
   }
 
@@ -406,6 +490,15 @@ export function renderSetupChoices() {
   currentSession.messages.push(choiceMessage);
 }
 
+/** Friendly display labels for derived stats (falls back to the raw key). */
+const DERIVED_STAT_LABELS: Record<string, string> = {
+  armorClass: 'Armor Class',
+  speed: 'Speed',
+  level: 'Level',
+  initiative: 'Initiative',
+  experiencePoints: 'Experience Points',
+};
+
 export function renderCharacterSheet(data: CharacterSheetData) {
   if (!characterSheetDisplay) return;
 
@@ -434,7 +527,7 @@ export function renderCharacterSheet(data: CharacterSheetData) {
     .join('\n');
 
   const derivedStatsMd = Object.entries(stats.derivedStats || {})
-    .map(([name, val]) => `- **${name}:** ${val}`)
+    .map(([name, val]) => `- **${DERIVED_STAT_LABELS[name] || name}:** ${val}`)
     .join('\n');
 
   const skillsMd = (data.skills || [])
@@ -672,7 +765,7 @@ let currentGY = 0;
  * Handles iOS permission requirements by waiting for a user interaction.
  */
 export function initGyroscope() {
-  if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof (DeviceMotionEvent as any).requestPermission === 'function') {
     // iOS 13+ requires a user-initiated permission request
     const requestMotionPermission = () => {
       (DeviceMotionEvent as any).requestPermission()
@@ -749,4 +842,24 @@ function smoothMotionLoop() {
   root.style.setProperty('--gy', `${currentGY}px`);
 
   requestAnimationFrame(smoothMotionLoop);
+}
+
+/** Fills a <select> with the browser's available TTS voices, preserving the saved selection. */
+export function populateTtsVoices(select: HTMLSelectElement, selectedURI: string): void {
+  const voices = getAvailableVoices();
+  select.innerHTML = '';
+  if (!voices || voices.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No voices available';
+    select.appendChild(opt);
+    return;
+  }
+  for (const v of voices) {
+    const opt = document.createElement('option');
+    opt.value = v.voiceURI;
+    opt.textContent = `${v.name} (${v.lang})`;
+    if (v.voiceURI === selectedURI) opt.selected = true;
+    select.appendChild(opt);
+  }
 }

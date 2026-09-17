@@ -131,6 +131,15 @@ import {
   contextHeader,
   renderLogbookTree,
   initGyroscope,
+  ttsEnabledToggle,
+  ttsVoiceSelect,
+  ttsRateInput,
+  ttsRateValue,
+  ttsPitchInput,
+  ttsPitchValue,
+  ttsTestBtn,
+  populateTtsVoices,
+  onRetryMessage,
 } from './ui';
 import {
   addUserContext,
@@ -207,6 +216,14 @@ const Yn = () => {
 };
 
 import { retryOperation, throttledBackgroundCall } from './utils';
+import type { RetryInfo } from './utils';
+import { speakModelMessage, stopSpeaking, testTts, refreshVoices } from './tts';
+
+/** Formats a retry status line for the loading message: "Error: x. Retrying in Ns... (retry y/z)" */
+function formatRetryStatus(info: RetryInfo): string {
+  const err = info.error.length > 80 ? info.error.substring(0, 80) + '…' : info.error;
+  return `Error: ${err}. Retrying in ${Math.ceil(info.delayMs / 1000)}s... (retry ${info.attempt}/${info.maxRetries})`;
+}
 // Fix: import UISettings type
 import type { Message, ChatSession, UISettings, GameSettings } from './types';
 
@@ -444,8 +461,8 @@ function loadChat(id: string, force = false) {
         const version = session.systemVersion || '2.0';
         const instruction = persona.getInstruction(session.adminPassword || '', version);
         setGeminiChat(createNewChatInstance(geminiHistory, instruction));
-        // Initialize chronicler for existing games. Explicitly use 'gemini-2.5-flash' for cost/speed.
-        setChroniclerChat(createNewChatInstance([], getChroniclerPrompt(), 'gemini-2.5-flash'));
+        // Initialize chronicler for existing games. Explicitly use 'gemini-3.5-flash-lite' for cost/speed.
+        setChroniclerChat(createNewChatInstance([], getChroniclerPrompt(), 'gemini-3.5-flash-lite'));
       }
     } catch (error: any) {
       console.error('Failed to create Gemini chat instance:', error);
@@ -583,11 +600,13 @@ async function finalizeSetupAndStartGame(session: ChatSession, title: string, fi
       }));
 
     setGeminiChat(createNewChatInstance(geminiHistory, instruction));
-    // Initialize the Chronicler AI for the main game. Explicitly use 'gemini-2.5-flash' for cost/speed.
-    setChroniclerChat(createNewChatInstance([], getChroniclerPrompt(), 'gemini-2.5-flash'));
+    // Initialize the Chronicler AI for the main game. Explicitly use 'gemini-3.5-flash-lite' for cost/speed.
+    setChroniclerChat(createNewChatInstance([], getChroniclerPrompt(), 'gemini-3.5-flash-lite'));
 
     if (!finalSetupMessage) {
-      const kickoffResult = await retryOperation(() => getGeminiChat()!.sendMessageStream({ message: "The setup is complete. Begin the adventure by narrating the opening scene." })) as any;
+      const kickoffResult = await retryOperation(() => getGeminiChat()!.sendMessageStream({ message: "The setup is complete. Begin the adventure by narrating the opening scene." }), 3, 2000, (info) => {
+        gameLoadingMessage.textContent = formatRetryStatus(info);
+      }) as any;
 
       let openingSceneText = '';
       gameLoadingMessage.classList.remove('loading');
@@ -618,6 +637,7 @@ async function finalizeSetupAndStartGame(session: ChatSession, title: string, fi
       openingSceneMessage.text = openingSceneText;
       appendMessage(openingSceneMessage);
       saveChatHistoryToDB();
+      speakModelMessage(openingSceneText);
     } else {
       gameLoadingContainer.remove();
     }
@@ -642,6 +662,7 @@ async function handleFormSubmit(e: Event) {
     const userInput = chatInput.value.trim();
     const currentSession = getCurrentChat();
     if (!userInput || !currentSession) return;
+    stopSpeaking();
 
     const lowerCaseInput = userInput.toLowerCase().replace(/[?]/g, '');
 
@@ -677,6 +698,7 @@ async function handleFormSubmit(e: Event) {
         currentSession.adminPassword = userInput;
         saveChatHistoryToDB();
         await finalizeSetupAndStartGame(currentSession, currentSession.title);
+        setSending(false);
         return;
       }
 
@@ -711,7 +733,9 @@ async function handleFormSubmit(e: Event) {
           messageToSend = `I've chosen the ${personaName} with a ${tone} tone and ${narration} narration. Now, let's create the world.`;
         }
 
-        const result = await retryOperation(() => geminiChat.sendMessageStream({ message: messageToSend })) as any;
+        const result = await retryOperation(() => geminiChat.sendMessageStream({ message: messageToSend }), 3, 2000, (info) => {
+          modelMessageEl.textContent = formatRetryStatus(info);
+        }) as any;
         let responseText = '';
         modelMessageEl.classList.remove('loading');
         modelMessageEl.innerHTML = '';
@@ -743,6 +767,8 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.innerHTML = setupMessageText;
           modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
+          speakModelMessage(setupMessageText);
+          setSending(false);
           return;
         }
 
@@ -752,6 +778,8 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.innerHTML = setupMessageText;
           modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
+          speakModelMessage(setupMessageText);
+          setSending(false);
           return;
         }
 
@@ -762,6 +790,8 @@ async function handleFormSubmit(e: Event) {
             modelMessage.text = setupMessageText;
             saveChatHistoryToDB();
             renderSetupChoices();
+            speakModelMessage(setupMessageText);
+            setSending(false);
             return;
         }
 
@@ -772,6 +802,7 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.innerHTML = setupMessageText;
           modelMessage.text = setupMessageText;
           saveChatHistoryToDB();
+          speakModelMessage(setupMessageText);
 
           const charLoadingContainer = appendMessage({ sender: 'model', text: '' });
           const charLoadingMessage = charLoadingContainer.querySelector('.message') as HTMLElement;
@@ -789,7 +820,9 @@ async function handleFormSubmit(e: Event) {
                   items: quickStartCharacterSchema,
                 },
               }
-            })) as GenerateContentResponse;
+            }), 3, 2000, (info) => {
+              charLoadingMessage.textContent = formatRetryStatus(info);
+            }) as GenerateContentResponse;
             const chars = JSON.parse(charResponse.text || '[]');
             currentSession.quickStartChars = chars;
             saveChatHistoryToDB();
@@ -801,6 +834,7 @@ async function handleFormSubmit(e: Event) {
             alert(`Quick Start character generation failed: ${charError instanceof Error ? charError.message : String(charError)}`);
             appendMessage({ sender: 'error', text: 'Failed to generate characters. Please try again or choose Guided Setup.' });
           }
+          setSending(false);
           return;
         }
 
@@ -811,9 +845,11 @@ async function handleFormSubmit(e: Event) {
           modelMessageEl.innerHTML = finalSetupText;
           modelMessage.text = finalSetupText;
           await finalizeSetupAndStartGame(currentSession, title, modelMessage);
+          speakModelMessage(finalSetupText);
         } else {
           modelMessage.text = responseText;
           saveChatHistoryToDB();
+          speakModelMessage(responseText);
         }
       } catch (error) {
         console.error("Setup AI Error:", error);
@@ -826,6 +862,7 @@ async function handleFormSubmit(e: Event) {
         alert(`Setup AI Error: ${error instanceof Error ? error.message : String(error)}`);
         appendMessage({ sender: 'error', text: 'The setup guide seems to have gotten lost. Please try again.' });
       }
+      setSending(false);
       return;
     }
 
@@ -939,7 +976,9 @@ async function handleFormSubmit(e: Event) {
           const currentChat = createNewChatInstance(geminiHistory, instruction);
           setGeminiChat(currentChat);
 
-          const result = await retryOperation(() => currentChat.sendMessageStream({ message: attempts === 0 ? messageWithContext : "Please regenerate your last response correctly." })) as any;
+          const result = await retryOperation(() => currentChat.sendMessageStream({ message: attempts === 0 ? messageWithContext : "Please regenerate your last response correctly." }), 3, 2000, (info) => {
+            modelMessageEl.textContent = formatRetryStatus(info);
+          }) as any;
           
           modelMessageEl.classList.remove('loading');
           modelMessageEl.innerHTML = '';
@@ -983,6 +1022,7 @@ async function handleFormSubmit(e: Event) {
             modelMessageEl.innerHTML = responseText;
             modelMessage.text = responseText;
             saveChatHistoryToDB();
+            speakModelMessage(responseText);
             break;
           }
           // The interceptor already pushed a [WFGY COLLAPSE] message to session.history
@@ -1030,6 +1070,7 @@ async function handleFormSubmit(e: Event) {
 
       modelMessage.text = responseText.replace(combatStatusRegex, '').replace(logbookUpdateRegex, '').trim();
       saveChatHistoryToDB();
+      speakModelMessage(modelMessage.text);
       
       // --- WFGY AUDIT TRIGGER ---
       (async () => {
@@ -1174,7 +1215,9 @@ async function handleFileUpload(event: Event) {
 
     const result = await retryOperation(() => geminiChat.sendMessageStream({ 
         message: [filePart, prompt] 
-    } as any)) as any;
+    } as any), 3, 2000, (info) => {
+      modelMessageEl.textContent = formatRetryStatus(info);
+    }) as any;
 
     let responseText = '';
     modelMessageEl.classList.remove('loading');
@@ -1208,6 +1251,7 @@ async function handleFileUpload(event: Event) {
         modelMessage.text = finalSetupText;
         saveChatHistoryToDB();
         renderSetupChoices();
+        speakModelMessage(finalSetupText);
         return;
     }
 
@@ -1218,9 +1262,11 @@ async function handleFileUpload(event: Event) {
         modelMessageEl.innerHTML = finalSetupText;
         modelMessage.text = finalSetupText;
         await finalizeSetupAndStartGame(currentSession, title, modelMessage);
+        speakModelMessage(finalSetupText);
     } else {
         modelMessage.text = responseText;
         saveChatHistoryToDB();
+        speakModelMessage(responseText);
     }
   } catch (error: any) {
     console.error("File Upload Error:", error);
@@ -1246,6 +1292,49 @@ function setupEventListeners() {
   
   chatForm.addEventListener('submit', handleFormSubmit);
   if(sendButton) sendButton.addEventListener('click', handleFormSubmit);
+
+  // Retry button on chat messages: truncate later messages and re-send to the LLM.
+  onRetryMessage(async (msg) => {
+    const currentSession = getCurrentChat();
+    if (!currentSession || isSending()) return;
+    stopSpeaking();
+
+    const idx = currentSession.messages.indexOf(msg);
+    if (idx === -1) return;
+
+    let resendText: string | null = null;
+    if (msg.sender === 'user') {
+      const later = currentSession.messages.length - 1 - idx;
+      if (later > 0) {
+        const ok = window.confirm(`Retry will delete ${later} later message${later === 1 ? '' : 's'} and re-send this message. Continue?`);
+        if (!ok) return;
+      }
+      // Re-send this user message; drop everything after it.
+      resendText = msg.text;
+      currentSession.messages.splice(idx + 1);
+    } else if (msg.sender === 'model') {
+      let userIdx = idx - 1;
+      while (userIdx >= 0 && currentSession.messages[userIdx].sender !== 'user') userIdx--;
+      if (userIdx < 0) return;
+      const later = currentSession.messages.length - 1 - idx;
+      if (later > 0) {
+        const ok = window.confirm(`Retry will delete this message and ${later} later message${later === 1 ? '' : 's'}, then re-send your previous message. Continue?`);
+        if (!ok) return;
+      }
+      // Re-send the preceding user message; drop this response and everything after it.
+      resendText = currentSession.messages[userIdx].text;
+      currentSession.messages.splice(idx);
+    } else {
+      return;
+    }
+
+    renderMessages(currentSession.messages);
+    saveChatHistoryToDB();
+
+    chatInput.value = resendText;
+    chatInput.style.height = 'auto';
+    await handleFormSubmit(new Event('submit', { cancelable: true }));
+  });
 
   chatInput.addEventListener('focus', () => {
     setTimeout(() => {
@@ -1543,6 +1632,48 @@ function setupEventListeners() {
         dbSet('dm-os-ui-settings', getUISettings());
       });
   }
+  if (ttsEnabledToggle) {
+      ttsEnabledToggle.addEventListener('change', () => {
+        getUISettings().ttsEnabled = ttsEnabledToggle.checked;
+        dbSet('dm-os-ui-settings', getUISettings());
+        if (!ttsEnabledToggle.checked) stopSpeaking();
+      });
+  }
+  if (ttsVoiceSelect) {
+      ttsVoiceSelect.addEventListener('change', () => {
+        getUISettings().ttsVoiceURI = ttsVoiceSelect.value;
+        dbSet('dm-os-ui-settings', getUISettings());
+      });
+  }
+  if (ttsRateInput) {
+      ttsRateInput.addEventListener('input', () => {
+        const rate = parseFloat(ttsRateInput.value) || 1;
+        getUISettings().ttsRate = rate;
+        if (ttsRateValue) ttsRateValue.textContent = String(rate);
+        dbSet('dm-os-ui-settings', getUISettings());
+      });
+  }
+  if (ttsPitchInput) {
+      ttsPitchInput.addEventListener('input', () => {
+        const pitch = parseFloat(ttsPitchInput.value) || 1;
+        getUISettings().ttsPitch = pitch;
+        if (ttsPitchValue) ttsPitchValue.textContent = String(pitch);
+        dbSet('dm-os-ui-settings', getUISettings());
+      });
+  }
+  if (ttsTestBtn) {
+      ttsTestBtn.addEventListener('click', () => testTts());
+  }
+  // Populate TTS voices once available (Chrome loads them asynchronously).
+  const populateVoices = () => {
+    if (ttsVoiceSelect) {
+      populateTtsVoices(ttsVoiceSelect, getUISettings().ttsVoiceURI || '');
+    }
+  };
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = populateVoices;
+    populateVoices();
+  }
   if (modelSelect) {
       modelSelect.addEventListener('change', () => {
         if (modelSelect.value === 'custom') {
@@ -1582,7 +1713,7 @@ function setupEventListeners() {
         }
       } else {
         // Fall back to default instead of crashing on empty input
-        getUISettings().activeModel = 'gemini-2.5-flash';
+        getUISettings().activeModel = 'gemini-3.5-flash-lite';
         dbSet('dm-os-ui-settings', getUISettings());
         const currentChat = getCurrentChat();
         if (currentChat) {

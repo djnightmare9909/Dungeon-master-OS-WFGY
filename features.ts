@@ -250,7 +250,7 @@ async function generateLogbookSection(section: 'sheet' | 'inventory' | 'quests' 
 
   switch (section) {
     case 'sheet':
-      prompt = `Based on the following chat history, generate a JSON object representing the user's character sheet for the ${systemName} system. Fill in as much detail as possible from context. If unknown, use defaults.
+      prompt = `Based on the following chat history, generate a COMPLETE JSON object representing the user's character sheet for the ${systemName} system. Fill in every field with as much detail as possible from context. Do NOT omit or leave empty any of the required fields — if unknown, use sensible defaults. Include the character's name, identity (race, class, level, background), all ability scores (${ruleset.statBlock.primaryStats.join(', ')}), resources (${ruleset.statBlock.resources.join(', ')} with current/max), derived stats (${ruleset.statBlock.derivedStats.join(', ')}), skills, and features/traits.
       History:
       ${historyText}`;
       schema = {
@@ -269,15 +269,34 @@ async function generateLogbookSection(section: 'sheet' | 'inventory' | 'quests' 
           stats: {
             type: Type.OBJECT,
             properties: {
-              primaryStats: { type: Type.OBJECT, description: `The primary characteristics for ${systemName} (e.g. ${ruleset.statBlock.primaryStats.join(', ')})` },
-              resources: { type: Type.OBJECT, description: `The trackable resources for ${systemName} (e.g. ${ruleset.statBlock.resources.join(', ')})` },
-              derivedStats: { type: Type.OBJECT, description: `The derived stats for ${systemName} (e.g. ${ruleset.statBlock.derivedStats.join(', ')})` },
+              primaryStats: {
+                type: Type.OBJECT,
+                description: `Ability scores for ${systemName}`,
+                properties: Object.fromEntries(ruleset.statBlock.primaryStats.map(s => [s, { type: Type.INTEGER }]))
+              },
+              resources: {
+                type: Type.OBJECT,
+                description: `Trackable resources for ${systemName}`,
+                properties: Object.fromEntries(ruleset.statBlock.resources.map(r => [r, {
+                  type: Type.OBJECT,
+                  properties: {
+                    current: { type: Type.INTEGER },
+                    max: { type: Type.INTEGER }
+                  }
+                }]))
+              },
+              derivedStats: {
+                type: Type.OBJECT,
+                description: `Derived stats for ${systemName}`,
+                properties: Object.fromEntries(ruleset.statBlock.derivedStats.map(d => [d, { type: Type.INTEGER }]))
+              },
               tags: { type: Type.OBJECT }
             }
           },
           skills: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, proficient: { type: Type.BOOLEAN } } } },
           featuresAndTraits: { type: Type.ARRAY, items: { type: Type.STRING } }
-        }
+        },
+        required: ['name', 'identity', 'stats', 'skills', 'featuresAndTraits']
       };
       break;
     case 'inventory':
@@ -466,7 +485,7 @@ export async function fetchAndRenderInventoryPopup() {
             .join('\n');
 
         const response = await retryOperation(() => ai.models.generateContent({
-            model: 'gemini-2.5-flash', // Use Flash for speed in UI elements
+            model: 'gemini-3.5-flash-lite', // Use Flash for speed in UI elements
             contents: `Based on this history, list the character's inventory items as a JSON list of strings. Be concise. History: ${historyText}`,
             config: {
                 responseMimeType: 'application/json',
@@ -841,7 +860,7 @@ export async function pruneAndSummarizeHistory() {
         `;
 
         const response = await retryOperation(() => ai.models.generateContent({
-          model: 'gemini-2.5-flash', // Use Flash for speed/cost
+          model: 'gemini-3.5-flash-lite', // Use Flash for speed/cost
           contents: prompt,
         })) as GenerateContentResponse;
 
