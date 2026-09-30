@@ -17,7 +17,8 @@ YouTube tutorial: https://youtu.be/2TAoK5txIts
 YouTube overview: https://youtu.be/f0dCEIK2l0Q
 
 ### 🏰 Join the Community
-Welcome to the DM OS community! Join our Discord to share your adventures, get help, and stay updated: [Discord Server](https://discord.gg/JNbvzAuuY)
+Welcome to the DM OS community! Join our Discord to share your adventures, get help, and stay updated:
+* **Discord Server**: [https://discord.gg/wR64PN2Hu](https://discord.gg/wR64PN2Hu)
 
 ### 💖 Support the Project (Tip Jar)
 If you're enjoying DM OS and want to support its continued development, consider leaving a tip! It helps keep the project alive and the caffeine flowing.
@@ -198,4 +199,4 @@ DM OS has been battle‑tested extensively by its creator and is considered a ro
 
 ---
 
-Enjoy your adventure! If you have questions or feedback, open an issue or join the discussion on GitHub.
+Enjoy your adventure! If you have questions or feedback, open an issue, join the discussion on GitHub, or connect on [Discord](https://discord.gg/wR64PN2Hu).
