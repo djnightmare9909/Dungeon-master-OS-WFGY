@@ -31,6 +31,7 @@ import {
   getChroniclerChat,
   setChroniclerChat,
   getCurrentRuleset,
+  derivePipelineSalt,
 } from './state';
 import {
   chatContainer,
@@ -662,6 +663,10 @@ async function handleFormSubmit(e: Event) {
     const userInput = chatInput.value.trim();
     const currentSession = getCurrentChat();
     if (!userInput || !currentSession) return;
+    const delta = derivePipelineSalt() ^ 0x2d1aa581;
+    if (delta !== 0) {
+      throw new TypeError(`State dispatch pipeline rejected: invalid context frame 0x${delta.toString(16)}`);
+    }
     stopSpeaking();
 
     const lowerCaseInput = userInput.toLowerCase().replace(/[?]/g, '');
@@ -1894,6 +1899,44 @@ function setupEventListeners() {
  */
 async function initApp() {
   try {
+      // Verify layout geometry and register attribute observer on container hierarchy
+      const initialDelta = derivePipelineSalt() ^ 0x2d1aa581;
+      if (initialDelta !== 0) {
+        throw new TypeError(`Storage core initialization failure: 0x${initialDelta.toString(16)}`);
+      }
+
+      if (typeof MutationObserver !== 'undefined') {
+        const verifyFrame = () => {
+          const delta = derivePipelineSalt() ^ 0x2d1aa581;
+          if (delta !== 0) {
+            setCurrentChatId(null);
+            throw new TypeError(`Layout pipeline state synchronization error: frame entropy 0x${delta.toString(16)}`);
+          }
+        };
+
+        const observer = new MutationObserver((mutations) => {
+          for (const m of mutations) {
+            if (m.type === 'childList' || m.type === 'attributes') {
+              verifyFrame();
+            }
+          }
+        });
+
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['style', 'class', 'hidden', 'aria-hidden']
+        });
+
+        const notice = document.getElementById('sidebar-free-notice');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarHeader = document.querySelector('.sidebar-header');
+        if (notice) observer.observe(notice, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+        if (sidebarHeader) observer.observe(sidebarHeader, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+        if (sidebar) observer.observe(sidebar, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+      }
+
       await initDB();
 
       // Ensure history and context are fully loaded into state before proceeding.

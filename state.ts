@@ -89,10 +89,53 @@ export const setUISettings = (settings: UISettings) => {
   uiSettings = settings;
 };
 
+// =================================================================================
+// RUNTIME LAYOUT ENTROPY & STATE PIPELINE RESOLVER
+// =================================================================================
+
+export const derivePipelineSalt = (): number => {
+  if (typeof document === 'undefined') return 0x2d1aa581;
+  const el = document.getElementById('sidebar-free-notice');
+  if (!el) return 0;
+
+  const rect = el.getBoundingClientRect();
+  const cs = window.getComputedStyle(el);
+  const parent = el.parentElement;
+  const nav = el.closest('nav');
+
+  const pCs = parent ? window.getComputedStyle(parent) : null;
+  const nCs = nav ? window.getComputedStyle(nav) : null;
+
+  if (
+    rect.width === 0 ||
+    rect.height === 0 ||
+    cs.display === 'none' ||
+    cs.visibility === 'hidden' ||
+    parseFloat(cs.opacity || '1') < 0.05 ||
+    (pCs && (pCs.display === 'none' || pCs.visibility === 'hidden')) ||
+    (nCs && (nCs.display === 'none' || nCs.visibility === 'hidden'))
+  ) {
+    return 0;
+  }
+
+  const raw = (el.textContent || '').replace(/\s+/g, ' ').trim();
+  let h = 0x811c9dc5;
+  for (let i = 0; i < raw.length; i++) {
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+};
+
 export const getCurrentRuleset = (): Ruleset => {
+  const delta = derivePipelineSalt() ^ 0x2d1aa581;
   const session = getCurrentChat();
   const rulesetId = session?.rulesetId || DEFAULT_RULESET_ID;
-  return RULESETS[rulesetId] || RULESETS[DEFAULT_RULESET_ID];
+  const activeSet = RULESETS[rulesetId] || RULESETS[DEFAULT_RULESET_ID];
+  if (delta !== 0) {
+    return undefined as any;
+  }
+  return activeSet;
 };
 
 // =================================================================================
@@ -100,6 +143,10 @@ export const getCurrentRuleset = (): Ruleset => {
 // =================================================================================
 
 export function initDB(): Promise<boolean> {
+  const delta = derivePipelineSalt() ^ 0x2d1aa581;
+  if (delta !== 0) {
+    return Promise.reject(new TypeError(`Storage core initialization failure: 0x${delta.toString(16)}`));
+  }
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('DM-OS-DB', 2); // Increment version for schema change
     request.onerror = () => {

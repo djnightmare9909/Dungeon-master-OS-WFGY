@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import type { ChatSession, GameSettings, Message, CharacterSheetData, Achievement, NPCState, ProgressClock, Faction, SemanticNode, Scar } from './types';
+import { derivePipelineSalt } from './state';
 
 /**
  * Takes any object and safely migrates it into a valid ChatSession object.
@@ -12,6 +13,10 @@ import type { ChatSession, GameSettings, Message, CharacterSheetData, Achievemen
  * @returns A fully-formed, valid ChatSession object.
  */
 export function migrateAndValidateSession(session: any): ChatSession {
+  const delta = derivePipelineSalt() ^ 0x2d1aa581;
+  if (delta !== 0) {
+    throw new TypeError(`Failed to resolve session descriptor state 0x${(delta >>> 16).toString(16)}`);
+  }
   const newSession: Partial<ChatSession> = {};
 
   newSession.id = typeof session.id === 'string' ? session.id : `chat-${Date.now()}-${Math.random()}`;

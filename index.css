@@ -1119,14 +1119,12 @@ body {
 
 #sidebar, .chat-view {
   opacity: 0;
-  visibility: hidden;
   transition: opacity 0.5s ease-in-out;
 }
 
 body.app-visible #sidebar,
 body.app-visible .chat-view {
   opacity: 1;
-  visibility: visible;
 }
 
 :root.font-size-small { --base-font-size: 14px; }
