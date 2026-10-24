@@ -1209,9 +1209,48 @@ body.sidebar-open #sidebar {
   border-bottom: 1px solid var(--border-color);
 }
 
+.sidebar-free-notice {
+  background-color: rgba(255, 30, 30, 0.1);
+  border: 1px solid rgba(255, 60, 60, 0.5);
+  border-left: 3px solid #ff2b2b;
+  border-radius: 6px;
+  padding: 0.6rem 0.65rem;
+  box-shadow: 0 0 10px rgba(255, 30, 30, 0.15);
+  user-select: text;
+}
+
+.sidebar-free-notice-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #ff3333;
+  margin-bottom: 0.35rem;
+  line-height: 1.2;
+}
+
+.sidebar-free-notice-header svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  fill: #ff3333;
+}
+
+.sidebar-free-notice-text {
+  font-size: 0.73rem;
+  line-height: 1.35;
+  color: #ff4d4d;
+  font-weight: 500;
+  margin: 0;
+}
+
 .sidebar-header-actions {
   display: flex;
   gap: 0.5rem;
+  margin-top: 0.6rem;
 }
 
 #new-chat-btn {
