@@ -142,27 +142,37 @@ export const getCurrentRuleset = (): Ruleset => {
 // DATABASE (INDEXEDDB)
 // =================================================================================
 
+export function getDB(): IDBDatabase | undefined {
+  return db;
+}
+
 export function initDB(): Promise<boolean> {
   const delta = derivePipelineSalt() ^ 0x2d1aa581;
   if (delta !== 0) {
     return Promise.reject(new TypeError(`Storage core initialization failure: 0x${delta.toString(16)}`));
   }
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('DM-OS-DB', 2); // Increment version for schema change
+    const request = indexedDB.open('DM-OS-DB', 2); // Version 2 introduces KeyValueStore
+    request.onblocked = () => {
+      console.warn('IndexedDB upgrade blocked: an open database connection exists in another tab or window.');
+    };
     request.onerror = () => {
-      console.error('Error opening IndexedDB');
+      console.error('Error opening IndexedDB:', request.error);
       reject(false);
     };
     request.onsuccess = () => {
       db = request.result;
+      db.onversionchange = () => {
+        console.warn('IndexedDB version changed elsewhere; closing outdated connection.');
+        db.close();
+      };
       resolve(true);
     };
     request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains('KeyValueStore')) {
-        db.createObjectStore('KeyValueStore', { keyPath: 'key' });
+      const targetDb = (event.target as IDBOpenDBRequest).result;
+      if (!targetDb.objectStoreNames.contains('KeyValueStore')) {
+        targetDb.createObjectStore('KeyValueStore', { keyPath: 'key' });
       }
-      // No automatic migration – existing data will be migrated on load
     };
   });
 }
@@ -402,26 +412,374 @@ export function migrateAndValidateSession(session: any): ChatSession {
 // DATA HYDRATION / PERSISTENCE
 // =================================================================================
 
+export interface RecoveryReport {
+  recoveredChatsCount: number;
+  recoveredContextCount: number;
+  recoveredSettings: boolean;
+  sourcesFound: string[];
+  details: string;
+}
+
+export function isDefaultBlankSetup(session: any): boolean {
+  if (!session || typeof session !== 'object') return false;
+  if (session.title !== 'New Game Setup') return false;
+  const msgs = Array.isArray(session.messages) ? session.messages : [];
+  const nonHiddenUserMsgs = msgs.filter((m: any) => m && m.sender === 'user' && !m.hidden);
+  return nonHiddenUserMsgs.length === 0;
+}
+
+function extractSessionsFromCandidate(data: any): any[] {
+  if (!data) return [];
+  if (Array.isArray(data)) {
+    const list: any[] = [];
+    for (const item of data) {
+      if (item && typeof item === 'object') {
+        if (item.messages || item.id || item.title) {
+          list.push(item);
+        } else if (item.value) {
+          list.push(...extractSessionsFromCandidate(item.value));
+        }
+      }
+    }
+    return list;
+  }
+  if (typeof data === 'object') {
+    if (Array.isArray(data.chats)) {
+      return extractSessionsFromCandidate(data.chats);
+    }
+    if (Array.isArray(data.value)) {
+      return extractSessionsFromCandidate(data.value);
+    }
+    if (data.value && typeof data.value === 'object' && (data.value.messages || data.value.id || data.value.title)) {
+      return [data.value];
+    }
+    if (data.messages || data.title || (typeof data.id === 'string' && data.id.startsWith('chat-'))) {
+      return [data];
+    }
+  }
+  return [];
+}
+
+/**
+ * Deep multi-source recovery engine.
+ * Automatically inspects all stores in DM-OS-DB, previous database names,
+ * legacy KeyValueStore entries, and localStorage to locate, migrate,
+ * and restore desynced campaigns without losing any current data.
+ */
+export async function recoverAllLegacyData(force = false): Promise<RecoveryReport> {
+  const discoveredSessions = new Map<string, ChatSession>();
+  const discoveredContext = new Set<string>();
+  let discoveredSettings: UISettings | undefined;
+  let discoveredTheme: string | undefined;
+  const sourcesFound: string[] = [];
+
+  // 1. Scan current IndexedDB (all object stores, including non-KeyValueStore legacy stores)
+  if (db) {
+    const storeNames = Array.from(db.objectStoreNames);
+    for (const storeName of storeNames) {
+      try {
+        const tx = db.transaction([storeName], 'readonly');
+        const store = tx.objectStore(storeName);
+        const records = await new Promise<any[]>((resolve) => {
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+
+        if (storeName === 'KeyValueStore') {
+          for (const item of records) {
+            if (!item) continue;
+            const key = item.key;
+            if (
+              key === 'dm-os-chat-history' ||
+              key === 'dm-os-chat-history-backup' ||
+              key === 'chats' ||
+              key === 'chatHistory' ||
+              key === 'sessions' ||
+              key === 'dmos-chats'
+            ) {
+              const sessions = extractSessionsFromCandidate(item.value || item);
+              for (const s of sessions) {
+                const validated = migrateAndValidateSession(s);
+                if (validated.id) discoveredSessions.set(validated.id, validated);
+              }
+              if (sessions.length > 0) sourcesFound.push(`DM-OS-DB:KeyValueStore[${key}]`);
+            } else if (typeof key === 'string' && key.startsWith('chat-')) {
+              const s = item.value || item;
+              const validated = migrateAndValidateSession(s);
+              if (validated.id) {
+                discoveredSessions.set(validated.id, validated);
+                sourcesFound.push(`DM-OS-DB:KeyValueStore[${key}]`);
+              }
+            } else if (item.value && typeof item.value === 'object' && Array.isArray(item.value.messages)) {
+              const validated = migrateAndValidateSession(item.value);
+              if (validated.id) {
+                discoveredSessions.set(validated.id, validated);
+                sourcesFound.push(`DM-OS-DB:KeyValueStore[custom]`);
+              }
+            }
+
+            if (key === 'dm-os-user-context' || key === 'userContext' || key === 'context') {
+              if (Array.isArray(item.value)) {
+                item.value.forEach((c: any) => typeof c === 'string' && discoveredContext.add(c));
+              }
+            }
+            if ((key === 'dm-os-ui-settings' || key === 'uiSettings') && item.value && typeof item.value === 'object') {
+              discoveredSettings = { ...getUISettings(), ...item.value };
+            }
+            if ((key === 'dm-os-theme' || key === 'theme') && typeof item.value === 'string') {
+              discoveredTheme = item.value;
+            }
+          }
+        } else {
+          // Pre-version-2 dedicated stores (e.g. 'chats', 'sessions', 'chatHistory')
+          for (const item of records) {
+            const sessions = extractSessionsFromCandidate(item);
+            for (const s of sessions) {
+              const validated = migrateAndValidateSession(s);
+              if (validated.id) discoveredSessions.set(validated.id, validated);
+            }
+          }
+          if (records.length > 0) {
+            sourcesFound.push(`DM-OS-DB:store[${storeName}]`);
+          }
+        }
+      } catch (err) {
+        console.warn(`Error scanning store ${storeName}:`, err);
+      }
+    }
+  }
+
+  // 2. Scan other candidate IndexedDB databases (e.g. from earlier naming conventions)
+  const candidateDbNames = new Set<string>([
+    'DM-OS',
+    'dm-os',
+    'dm-os-db',
+    'dmos',
+    'dmos-db',
+    'DungeonMasterOS',
+    'dungeon-master-os',
+    'DM-OS-Database',
+    'DMOS-DB',
+    'keyval-store',
+    'dnd-os',
+  ]);
+
+  if (typeof indexedDB.databases === 'function') {
+    try {
+      const dbs = await indexedDB.databases();
+      for (const d of dbs) {
+        if (d.name && d.name !== 'DM-OS-DB') {
+          candidateDbNames.add(d.name);
+        }
+      }
+    } catch {
+      // Ignored if API is unavailable
+    }
+  }
+
+  for (const dbName of candidateDbNames) {
+    if (dbName === 'DM-OS-DB') continue;
+    try {
+      const candDb = await new Promise<IDBDatabase | null>((resolve) => {
+        const req = indexedDB.open(dbName);
+        const timer = setTimeout(() => {
+          try { req.result?.close(); } catch {}
+          resolve(null);
+        }, 1200);
+
+        req.onsuccess = () => {
+          clearTimeout(timer);
+          resolve(req.result);
+        };
+        req.onerror = () => {
+          clearTimeout(timer);
+          resolve(null);
+        };
+        req.onblocked = () => {
+          clearTimeout(timer);
+          resolve(null);
+        };
+      });
+
+      if (candDb) {
+        const storeNames = Array.from(candDb.objectStoreNames);
+        let foundInThisDb = 0;
+        for (const sName of storeNames) {
+          try {
+            const tx = candDb.transaction([sName], 'readonly');
+            const records = await new Promise<any[]>((res) => {
+              const r = tx.objectStore(sName).getAll();
+              r.onsuccess = () => res(r.result || []);
+              r.onerror = () => res([]);
+            });
+            for (const item of records) {
+              const sessions = extractSessionsFromCandidate(item);
+              for (const s of sessions) {
+                const validated = migrateAndValidateSession(s);
+                if (validated.id) {
+                  discoveredSessions.set(validated.id, validated);
+                  foundInThisDb++;
+                }
+              }
+              if (item?.key === 'dm-os-user-context' || item?.key === 'userContext') {
+                if (Array.isArray(item.value)) {
+                  item.value.forEach((c: any) => typeof c === 'string' && discoveredContext.add(c));
+                }
+              }
+            }
+          } catch {}
+        }
+        candDb.close();
+        if (foundInThisDb > 0) {
+          sourcesFound.push(`IndexedDB:${dbName}`);
+        }
+      }
+    } catch {}
+  }
+
+  // 3. Scan localStorage fallback and backups
+  if (typeof localStorage !== 'undefined') {
+    const candidateKeys = [
+      'dm-os-chat-history',
+      'dm-os-chat-history-backup',
+      'chats',
+      'chatHistory',
+      'chat-history',
+      'dmos-chats',
+      'dnd-chats',
+      'dmos_full_backup',
+    ];
+
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('chat-') || k.includes('dmos') || k.includes('chat') || k.includes('backup'))) {
+          if (!candidateKeys.includes(k)) candidateKeys.push(k);
+        }
+      }
+    } catch {}
+
+    for (const key of candidateKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        const sessions = extractSessionsFromCandidate(parsed);
+        let count = 0;
+        for (const s of sessions) {
+          const validated = migrateAndValidateSession(s);
+          if (validated.id) {
+            discoveredSessions.set(validated.id, validated);
+            count++;
+          }
+        }
+        if (count > 0) {
+          sourcesFound.push(`localStorage:${key}`);
+        }
+        if ((key === 'dm-os-user-context' || key === 'userContext') && Array.isArray(parsed)) {
+          parsed.forEach((c: any) => typeof c === 'string' && discoveredContext.add(c));
+        }
+      } catch {}
+    }
+  }
+
+  // 4. Filter and select highest-quality sessions
+  const allRecoveredList = Array.from(discoveredSessions.values());
+  const realSessions = allRecoveredList.filter((s) => !isDefaultBlankSetup(s));
+  const validList = realSessions.length > 0 ? realSessions : allRecoveredList;
+
+  let recoveredChatsCount = 0;
+  if (validList.length > 0) {
+    const isOnlyBlank =
+      chatHistory.length === 0 ||
+      (chatHistory.length === 1 && isDefaultBlankSetup(chatHistory[0]));
+
+    if (isOnlyBlank || force) {
+      // Direct replacement of blank/empty session with recovered campaigns
+      chatHistory.splice(0, chatHistory.length, ...validList);
+      recoveredChatsCount = validList.length;
+    } else {
+      // Merge with any new chats user created after the update without overwriting
+      const existingIds = new Set(chatHistory.map((c) => c.id));
+      for (const rec of validList) {
+        if (!existingIds.has(rec.id)) {
+          chatHistory.push(rec);
+          recoveredChatsCount++;
+        }
+      }
+    }
+    saveChatHistoryToDB();
+  }
+
+  // 5. Restore userContext if empty
+  let recoveredContextCount = 0;
+  if (userContext.length === 0 && discoveredContext.size > 0) {
+    userContext.splice(0, userContext.length, ...Array.from(discoveredContext));
+    saveUserContextToDB();
+    recoveredContextCount = discoveredContext.size;
+  }
+
+  if (discoveredTheme) {
+    dbSet('dm-os-theme', discoveredTheme);
+  }
+  if (discoveredSettings) {
+    setUISettings({ ...getUISettings(), ...discoveredSettings });
+    dbSet('dm-os-ui-settings', getUISettings());
+  }
+
+  return {
+    recoveredChatsCount,
+    recoveredContextCount,
+    recoveredSettings: !!discoveredSettings,
+    sourcesFound: Array.from(new Set(sourcesFound)),
+    details: `Restored ${recoveredChatsCount} campaign(s) and ${recoveredContextCount} context item(s) from ${sourcesFound.join(', ') || 'no prior storage'}`,
+  };
+}
+
 export async function loadChatHistoryFromDB() {
   const storedHistory = await dbGet<any[]>('dm-os-chat-history');
   const validated = (storedHistory || []).map(migrateAndValidateSession);
-  // Mutate the array to maintain reference stability
   chatHistory.splice(0, chatHistory.length, ...validated);
+
+  // If chatHistory is empty or contains only the untouched auto-created placeholder, run deep recovery
+  const isOnlyBlank =
+    chatHistory.length === 0 ||
+    (chatHistory.length === 1 && isDefaultBlankSetup(chatHistory[0]));
+
+  if (isOnlyBlank) {
+    console.log('[DM OS] Primary chat history empty or reset. Initiating multi-source legacy database recovery...');
+    const report = await recoverAllLegacyData(false);
+    if (report.recoveredChatsCount > 0) {
+      console.log(`[DM OS] Automatic recovery successful: ${report.details}`);
+    }
+  }
 }
 
 export function saveChatHistoryToDB() {
   dbSet('dm-os-chat-history', chatHistory);
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('dm-os-chat-history-backup', JSON.stringify(chatHistory));
+    }
+  } catch {
+    // Quota exceeded fallback
+  }
 }
 
 export async function loadUserContextFromDB() {
   const storedContext = await dbGet<string[]>('dm-os-user-context');
   const loadedContext = storedContext || [];
-  // Mutate the array to maintain reference stability
   userContext.splice(0, userContext.length, ...loadedContext);
 }
 
 export function saveUserContextToDB() {
   dbSet('dm-os-user-context', userContext);
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('dm-os-user-context-backup', JSON.stringify(userContext));
+    }
+  } catch {}
 }
 
 // =================================================================================

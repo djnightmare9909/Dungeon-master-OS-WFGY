@@ -113,6 +113,7 @@
             <div class="data-buttons">
                 <button id="export-all-btn" class="sidebar-footer-btn">Export All</button>
                 <button id="import-all-btn" class="sidebar-footer-btn">Import All</button>
+                <button id="recover-db-btn" class="sidebar-footer-btn" title="Scan and restore previous campaigns from older database versions">Recover DB</button>
             </div>
             <input type="file" id="import-all-file-input" style="display: none;" />
           </div>
@@ -652,6 +653,24 @@
         <footer class="modal-footer">
             <button id="cancel-delete-btn" class="modal-footer-btn btn-secondary">Cancel</button>
             <button id="confirm-delete-btn" class="modal-footer-btn btn-danger">Delete</button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="recovery-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content" style="max-width: 500px;">
+        <header class="modal-header">
+          <h2>Database Recovery</h2>
+          <button id="close-recovery-modal-btn" class="close-modal-btn" aria-label="Close recovery dialog">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </header>
+        <div class="modal-body">
+          <p id="recovery-modal-message">Scanning browser storage for previous campaigns...</p>
+          <div id="recovery-modal-details" style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.25); border-radius: 4px; font-size: 0.85rem; font-family: var(--mono-font); word-break: break-all; max-height: 180px; overflow-y: auto;"></div>
+        </div>
+        <footer class="modal-footer" style="justify-content: flex-end;">
+          <button id="confirm-recovery-btn" class="logbook-update-btn">Done</button>
         </footer>
       </div>
     </div>

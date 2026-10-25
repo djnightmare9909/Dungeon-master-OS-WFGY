@@ -13,7 +13,8 @@ import {
   getChatHistory,
   dbSet,
   getUISettings,
-  getCurrentRuleset
+  getCurrentRuleset,
+  recoverAllLegacyData
 } from './state';
 import {
   updateSheetBtn,
@@ -40,7 +41,13 @@ import {
   renderAchievements, 
   renderUserContext, 
   updateLogbook,
-  appendMessage
+  appendMessage,
+  recoveryModal,
+  recoveryModalMessage,
+  recoveryModalDetails,
+  openModal,
+  closeModal,
+  renderChatHistory
 } from './ui';
 import { ai, generateEmbedding, getChroniclerPrompt } from './gemini';
 import { 
@@ -701,6 +708,40 @@ export async function handleImportAll(event: Event) {
     
     reader.readAsText(file);
     input.value = ''; // Reset
+}
+
+export async function handleManualRecovery() {
+    if (!recoveryModal) return;
+    if (recoveryModalMessage) {
+        recoveryModalMessage.textContent = 'Scanning all storage stores, previous databases, and local backups...';
+    }
+    if (recoveryModalDetails) {
+        recoveryModalDetails.textContent = 'Searching for existing DM OS campaign sessions and character sheets...';
+    }
+    openModal(recoveryModal);
+
+    try {
+        const report = await recoverAllLegacyData(true);
+        if (recoveryModalMessage) {
+            if (report.recoveredChatsCount > 0 || report.recoveredContextCount > 0) {
+                recoveryModalMessage.textContent = `Recovery complete! Successfully restored ${report.recoveredChatsCount} campaign(s) and ${report.recoveredContextCount} context note(s).`;
+            } else {
+                recoveryModalMessage.textContent = `All campaigns are already synchronized with your current database. No missing sessions were detected.`;
+            }
+        }
+        if (recoveryModalDetails) {
+            recoveryModalDetails.textContent = report.details;
+        }
+        renderChatHistory();
+        renderUserContext(getUserContext());
+    } catch (err: any) {
+        if (recoveryModalMessage) {
+            recoveryModalMessage.textContent = `Recovery error: ${err.message || String(err)}`;
+        }
+        if (recoveryModalDetails) {
+            recoveryModalDetails.textContent = String(err.stack || err);
+        }
+    }
 }
 
 export function addUserContext(text: string) {

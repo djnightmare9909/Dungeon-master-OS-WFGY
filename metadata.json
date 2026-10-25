@@ -1,5 +1,8 @@
 {
   "name": "Dungeon Master OS",
   "description": "Dungeon Master OS is the ultimate AI D&D OS. Streamline your tabletop RPGs with our AI Dungeon Master, instant encounter generation, NPCs, and AI D&D campaign management.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

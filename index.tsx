@@ -43,6 +43,10 @@ import {
   overlay,
   exportAllBtn,
   importAllBtn,
+  recoverDbBtn,
+  recoveryModal,
+  closeRecoveryModalBtn,
+  confirmRecoveryBtn,
   importAllFileInput,
   contextForm,
   contextInput,
@@ -153,6 +157,7 @@ import {
   exportChatToLocal,
   exportAllChats,
   handleImportAll,
+  handleManualRecovery,
   applyTheme,
   clearDiceResults,
   renderDiceGrid,
@@ -1542,6 +1547,21 @@ function setupEventListeners() {
   }
   if (importAllFileInput) importAllFileInput.addEventListener('change', handleImportAll);
   if (exportAllBtn) exportAllBtn.addEventListener('click', exportAllChats);
+  if (recoverDbBtn) recoverDbBtn.addEventListener('click', handleManualRecovery);
+  if (closeRecoveryModalBtn) closeRecoveryModalBtn.addEventListener('click', () => closeModal(recoveryModal));
+  if (confirmRecoveryBtn) {
+    confirmRecoveryBtn.addEventListener('click', () => {
+      closeModal(recoveryModal);
+      const history = getChatHistory();
+      if (history.length > 0) {
+        const current = getCurrentChat();
+        if (!current) {
+          const latest = [...history].sort((a, b) => b.createdAt - a.createdAt)[0];
+          loadChat(latest.id, true);
+        }
+      }
+    });
+  }
   
   if (chatOptionsMenu) {
       chatOptionsMenu.addEventListener('click', (e) => {
